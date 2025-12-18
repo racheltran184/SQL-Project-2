@@ -1,6 +1,6 @@
 # 🇧🇷 Olist E-Commerce Analytics: End-to-End Data Engineering & BI Project
 
-![SQL Server](https://img.shields.io/badge/SQL%20Server-T--SQL-red) ![Python](https://img.shields.io/badge/Python-Pandas%20%7C%20Seaborn-blue) ![Status](https://img.shields.io/badge/Status-Completed-success) ![Data Warehouse](https://img.shields.io/badge/Architecture-Star%20Schema-FF6F00)
+![SQL Server](https://img.shields.io/badge/SQL%20Server-T--SQL-red) ![Python](https://img.shields.io/badge/Python-Pandas%20%7C%20Seaborn-blue) ![Data Warehouse](https://img.shields.io/badge/Architecture-Star%20Schema-FF6F00)
 
 ## 📋 Executive Summary
 
