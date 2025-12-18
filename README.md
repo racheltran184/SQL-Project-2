@@ -60,13 +60,13 @@ Raw CSV Files → Staging Tables → Cleaned Tables → Data Warehouse → Seman
 ### 1. 📈 Revenue & Growth Trends
 
 While the 7.5x revenue growth is impressive, the platform exhibits high structural fragility. The reliance on Black Friday (Nov 2017) indicates a "feast or famine" dependency on seasonal events rather than consistent organic growth.
-
+Health & Beauty and Watches drive the business. These high-margin categories are the pillars of GMV.
 
 | Sales Trend (Seasonality) | Top 10 Revenue Categories |
 |:---:|:---:|
 | ![Sales Trend](images/monthly_sales_trend.png) | ![Top Categories](images/top_categories_revenue.png) |
 
-More alarmingly, the Pareto distribution is extreme. With the top 10% of sellers controlling 68% of GMV, Olist lacks leverage. If a competitor (e.g., Amazon Brazil, Mercado Libre) poaches just 50 of these "Power Sellers," Olist could lose half its revenue overnight. The platform is currently at the mercy of its top suppliers.
+More alarmingly, the Pareto distribution is extreme. With the top 10% of sellers controlling 68% of GMV, Olist lacks leverage. If a competitor (e.g., Amazon Brazil, Mercado Libre) poaches just 50 of these "Power Sellers," Olist could lose half its revenue overnight. The platform is currently at the mercy of its top suppliers. 
 
 ![Seller Concentration](images/seller_concentration.png)
 
