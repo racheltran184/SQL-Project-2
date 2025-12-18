@@ -1,0 +1,5 @@
+Delivery_Speed_Bucket,Orders,Avg_Review_Score
+0-5 Days (Fast),16740,4.00
+11-20 Days (Slow),33565,4.00
+6-10 Days (Normal),33240,4.00
+20+ Days (Critical),13180,3.00
