@@ -146,7 +146,16 @@ Decision: Keeping these sellers generates short-term cash but destroys long-term
 1.  **Regional Fulfillment:** Open a distribution hub in the North to cut transit times from 25 days to <10 days.
 2.  **B2B Focus:** Capitalize on the weekday buying behavior by launching "Olist for Business".
 3.  **Bundle Deals:** Automate "Frequently Bought Together" for Bed/Bath + Furniture categories.
+---
+# 🛠 Technologies Used
 
+* **Core Database:** Microsoft SQL Server (MSSQL)
+* **ETL Pipeline:** Raw CSV ingestion $\rightarrow$ Staging Cleaning $\rightarrow$ Production Warehouse
+* **Analytics Engineering:**
+    * **T-SQL:** Complex Window Functions (`RANK`, `LEAD`), Common Table Expressions (CTEs), and Stored Procedures.
+    * **Optimization:** Columnstore Indexes and Materialized Views for performance.
+* **Data Modeling:** Dimensional Modeling (Kimball Methodology) creating Facts and Dimensions.
+* **Visualization:** Python (Pandas for data wrangling, Seaborn/Matplotlib for heatmaps and plotting).
 ---
 
 ## 📂 Repository Structure
