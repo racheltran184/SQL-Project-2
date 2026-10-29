@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Olist E-Commerce SQL Project | Rachel Tran</title>
+<meta name="description" content="Rachel Tran's end-to-end SQL project on the Olist Brazilian e-commerce dataset: nine raw files loaded into SQL Server, a star-schema warehouse, fourteen business questions and what they mean for a marketplace.">
+<meta property="og:title" content="Olist e-commerce Analysis Project">
+<meta property="og:description" content="Olist e-commerce SQL project by Rachel Tran: from raw CSVs to a star schema, with every number re-checked.">
+<meta property="og:image" content="https://racheltran184.github.io/SQL-Project-2/images/purchasing_heatmap_annotated.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500;600&display=swap">
+<style>
+:root{
+  --paper:#ffffff; --off:#ffffff; --ink:#000000; --mid:#000000; --muted:#000000; --rule:#d4d4d4;
+  --lever:#2a78d6; --plate:#ffffff; --code:#ffffff;
+  --hi:#2a78d6; --lo:#cfcfca;
+  --serif:'Playfair Display',Georgia,'Times New Roman',serif;
+  --sans:'Outfit','Helvetica Neue',Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--paper);color:var(--ink);font:300 17px/1.65 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{max-width:100%;height:auto;display:block}
+a{color:inherit}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--lever);outline-offset:3px;border-radius:3px}
+.wrap{max-width:1160px;margin:0 auto;padding:0 max(16px,5vw)}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
+code{font-family:var(--mono);font-size:.84em;font-weight:400}
+.num{font-weight:500;color:var(--ink);white-space:nowrap}
+
+/* top bar */
+.bar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--rule)}
+.bar .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;height:58px}
+.home{font-family:var(--serif);font-weight:700;font-size:18px;text-decoration:none}
+.bar nav{display:flex;gap:22px;font-size:15px;font-weight:400}
+.bar nav a{text-decoration:none;color:var(--mid)}
+.bar nav a:hover{color:var(--ink)}
+@media (max-width:720px){.bar nav .opt{display:none}}
+
+/* hero */
+.hero{padding:72px 0 28px}
+.kicker{margin:0 0 18px;font-size:15px;font-weight:400;color:var(--mid);max-width:70ch}
+h1{margin:0;font-family:var(--serif);font-weight:900;font-size:clamp(40px,6.2vw,74px);line-height:1.02;letter-spacing:-.02em;max-width:15ch;text-wrap:balance}
+.lede{margin:26px 0 0;max-width:62ch;font-size:19px;color:var(--mid)}
+.lede strong{color:var(--ink);font-weight:500}
+
+/* the pipeline */
+.pipe{margin:56px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--ink);position:relative}
+.pipe::before{content:"";position:absolute;left:0;right:0;top:-2px;height:3px;background:linear-gradient(var(--lever),var(--lever)) left top/100% 3px no-repeat}
+@media (prefers-reduced-motion:no-preference){
+  .pipe::before{animation:flow 1.6s cubic-bezier(.2,.7,.2,1) .3s both}
+  @keyframes flow{from{background-size:0 3px}to{background-size:100% 3px}}
+}
+.pipe li{position:relative;padding:22px 34px 24px 0;border-bottom:1px solid var(--rule)}
+.pipe li:not(:last-child)::after{content:"→";position:absolute;right:10px;top:44px;font-family:var(--sans);font-weight:300;font-size:22px;line-height:1;color:var(--muted)}
+.pipe a{display:block;text-decoration:none}
+.pipe .st{display:block;font-size:13.5px;font-weight:400;color:var(--muted);margin-bottom:4px}
+.pipe .nm{display:block;font-family:var(--serif);font-weight:700;font-size:clamp(22px,2.3vw,30px);line-height:1.12}
+.pipe a:hover .nm{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px}
+.pipe small{display:block;margin-top:10px;font-size:14px;line-height:1.4;color:var(--mid);max-width:22ch}
+@media (max-width:860px){
+  .pipe{grid-template-columns:1fr}
+  .pipe li{display:grid;grid-template-columns:minmax(0,10rem) minmax(0,1fr);gap:4px 18px;align-items:baseline;padding:16px 0}
+  .pipe li:not(:last-child)::after{display:none}
+  .pipe small{margin-top:0;max-width:none}
+}
+.legend{margin:16px 0 0;font-size:14px;color:var(--mid)}
+
+/* role strip */
+.role{margin:40px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;font-size:15px;color:var(--mid)}
+.role p{margin:0}
+.role b{display:block;color:var(--ink);font-weight:500;margin-bottom:2px}
+@media (max-width:760px){.role{grid-template-columns:1fr;gap:16px}}
+
+/* steps */
+.step{padding:104px 0 0}
+.step-grid{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:32px 64px;border-top:1px solid var(--ink);padding-top:30px}
+.step-head{position:sticky;top:82px;align-self:start}
+.step-no{margin:0;font-family:var(--serif);font-weight:900;font-size:clamp(56px,7vw,88px);line-height:.9;letter-spacing:-.02em}
+.step-head h2{margin:18px 0 0;font-family:var(--serif);font-weight:900;font-size:clamp(28px,3.1vw,40px);line-height:1.08;letter-spacing:-.015em;text-wrap:balance}
+.io{margin:24px 0 0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;font-size:15px;line-height:1.45}
+.io dt{color:var(--muted);font-weight:400}
+.io dd{margin:0;font-weight:400}
+.step-body{display:flex;flex-direction:column;gap:20px;min-width:0}
+.step-body p{margin:0;max-width:64ch}
+.step-body ul{margin:0;padding-left:1.2em;max-width:62ch}
+.step-body li+li{margin-top:6px}
+.full{grid-column:1/-1;min-width:0}
+@media (max-width:900px){.step-grid{grid-template-columns:1fr;gap:24px}.step-head{position:static}}
+.wide .step-head{position:static;display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 28px;align-items:end}
+.wide .step-head h2{margin:0;max-width:24ch}
+.wide .io{grid-column:2;margin-top:16px}
+.wide{grid-template-columns:1fr}
+@media (max-width:640px){.wide .step-head{grid-template-columns:1fr}.wide .step-head h2{margin-top:14px}.wide .io{grid-column:1}}
+
+/* four questions */
+.qs{margin:0;padding:0;list-style:none;border-top:1px solid var(--rule);max-width:64ch}
+.qs li{display:grid;grid-template-columns:2rem minmax(0,1fr);padding:12px 0;border-bottom:1px solid var(--rule)}
+.qs li+li{margin-top:0}
+.qs .n{font-family:var(--serif);font-weight:700;color:var(--lever)}
+.qs a{text-decoration-color:var(--rule);text-underline-offset:4px}
+.qs a:hover{text-decoration-color:var(--ink)}
+
+/* ledger tables */
+.ledger{width:100%;max-width:640px;border-collapse:collapse;font-size:15px}
+.ledger caption{text-align:left;font-weight:500;padding-bottom:10px}
+.ledger th,.ledger td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule);text-align:left;font-weight:400;vertical-align:top}
+.ledger thead th{color:var(--muted);border-bottom:1px solid var(--ink);font-size:14px}
+.ledger .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ledger tfoot th,.ledger tfoot td{font-weight:500;border-bottom:0;border-top:1px solid var(--ink)}
+.ledger .b{width:36%;padding-left:16px;padding-right:0;vertical-align:middle}
+.ledger .b span{display:block;height:8px;border-radius:0 4px 4px 0;background:var(--lo);width:max(2px,calc(var(--v) * 1%))}
+.ledger .b span.hi{background:var(--hi)}
+.ledger code{font-size:.9em}
+.ledger th code{overflow-wrap:anywhere}
+@media (max-width:520px){.ledger .b{display:none}}
+.fixgrid th[scope=row]{font-weight:500;white-space:nowrap}
+@media (max-width:640px){
+  .fixgrid thead{display:none}
+  .fixgrid tr{display:block;padding:12px 0;border-bottom:1px solid var(--rule)}
+  .fixgrid th,.fixgrid td{display:block;border:0;padding:2px 0}
+  .fixgrid td::before{content:attr(data-label) ": ";color:var(--muted)}
+}
+
+/* sql */
+details.sql{border-top:1px solid var(--rule);padding-top:2px}
+details.sql summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;min-height:44px;font-weight:500;font-size:15px}
+details.sql summary::-webkit-details-marker{display:none}
+details.sql summary::before{content:"";width:0;height:0;flex:none;border-left:8px solid var(--ink);border-top:5px solid transparent;border-bottom:5px solid transparent;transition:transform .2s}
+details.sql[open] summary::before{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){details.sql summary::before{transition:none}}
+details.sql pre{margin:8px 0 0;padding:16px 18px;background:var(--code);border:1px solid var(--rule);border-radius:10px;overflow-x:auto;font:400 13.5px/1.6 var(--mono);color:var(--ink);tab-size:4}
+details.sql pre code{font-size:inherit}
+.c{color:var(--muted)}
+details.sql .src{margin:10px 0 0;font-size:14px;color:var(--muted)}
+details.sql .src a{color:var(--mid)}
+
+/* star schema */
+.schema{margin:12px 0 0}
+.schema svg{width:100%;height:auto;display:block;max-width:980px}
+.schema .fact rect{fill:var(--off);stroke:var(--ink);stroke-width:1.5}
+.schema .dim rect{fill:var(--paper);stroke:var(--muted);stroke-width:1}
+.schema text{font-family:var(--sans);fill:var(--ink)}
+.schema .t{font-size:16px;font-weight:600}
+.schema .s{font-size:13.5px;font-weight:400;fill:var(--ink)}
+.schema .k{font-size:13px;font-weight:300;fill:var(--mid)}
+.schema .key{font-size:12.5px;font-weight:400;fill:var(--muted)}
+.schema .ln{stroke:var(--mid);stroke-width:1.25;fill:none}
+.schema .ln.soft{stroke-dasharray:4 4}
+.schema figcaption{margin-top:12px;font-size:14px;color:var(--muted);max-width:72ch}
+.schema-list{display:none;gap:18px}
+.schema-list h3{margin:0 0 6px;font-size:15px;font-weight:600}
+.schema-list ul{margin:0;padding:0;list-style:none;border-top:1px solid var(--rule)}
+.schema-list li{padding:10px 0;border-bottom:1px solid var(--rule);font-size:15px}
+.schema-list b{font-weight:500;display:block}
+@media (max-width:700px){.schema svg{display:none}.schema-list{display:grid}}
+
+/* findings */
+.finding{padding:72px 0 0}
+.finding-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;padding-bottom:20px;border-bottom:1px solid var(--ink)}
+.finding-head h3{margin:0;font-family:var(--serif);font-weight:900;font-size:clamp(26px,3.2vw,40px);line-height:1.1;letter-spacing:-.015em;max-width:24ch;text-wrap:balance}
+.finding-head p{margin:0;font-size:15px;color:var(--mid)}
+.finding-body{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:56px;padding-top:32px;align-items:start}
+@media (max-width:980px){.finding-body{grid-template-columns:1fr;gap:34px}}
+.story{display:flex;flex-direction:column;gap:22px;min-width:0}
+.story h4{margin:0 0 4px;font-size:15px;font-weight:600}
+.story p{margin:0;max-width:60ch}
+.story p+p{margin-top:10px}
+.shot{margin:0;position:sticky;top:82px;min-width:0}
+@media (max-width:980px){.shot{position:static}}
+a.frame{display:block;border:1px solid var(--rule);border-radius:10px;overflow:hidden;background:var(--plate)}
+a.frame:hover{border-color:var(--mid)}
+a.frame img{width:100%}
+.more .span a.frame{max-width:900px}
+.more .pie a.frame{max-width:360px}
+.shot figcaption,.more figcaption{margin-top:12px;font-size:14px;color:var(--muted);max-width:70ch}
+.more{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;margin-top:40px}
+.more figure{margin:0;min-width:0}
+.more .span{grid-column:1/-1}
+@media (max-width:760px){.more{grid-template-columns:1fr}}
+
+/* redrawn bar charts */
+.viz{padding:22px 22px 18px;border:1px solid var(--rule);border-radius:10px;background:var(--plate)}
+.viz-title{margin:0 0 18px;font-size:15px;font-weight:500;color:var(--ink)}
+.bars{margin:0;padding:0;list-style:none;display:grid;gap:12px}
+.bars li{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr) 3.4rem;align-items:center;gap:0 14px}
+.bars .blab{font-size:14.5px;line-height:1.25;font-weight:400}
+.bars .blab small{display:block;font-size:12.5px;color:var(--muted);font-weight:300}
+.bars .track{position:relative;height:16px}
+.bars .fill{position:absolute;left:0;top:0;bottom:0;width:calc(var(--v) / var(--max) * 100%);background:var(--lo);border-radius:0 4px 4px 0}
+.bars .hi .fill{background:var(--hi)}
+.bars .val{text-align:right;font-size:14.5px;font-weight:500;font-variant-numeric:tabular-nums}
+.bars.ref .track::after{content:"";position:absolute;top:-7px;bottom:-7px;left:calc(var(--ref) / var(--max) * 100%);border-left:1.5px dashed var(--ink)}
+.viz-key{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13.5px;color:var(--mid)}
+.viz-key li{display:inline-flex;align-items:center;gap:8px}
+.viz-key .sw{width:16px;height:10px;border-radius:0 3px 3px 0;background:var(--hi)}
+.viz-key .dash{width:0;height:16px;border-left:1.5px dashed var(--ink)}
+@media (max-width:420px){.bars li{grid-template-columns:minmax(0,7.2rem) minmax(0,1fr) 3.2rem;gap:0 10px}}
+
+/* buttons */
+.acts{display:flex;flex-wrap:wrap;gap:10px 12px;margin-top:18px}
+.btn{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:999px;font:500 15px/1 var(--sans);text-decoration:none;border:1px solid var(--ink);background:transparent;color:var(--ink)}
+.btn.solid{background:var(--ink);color:var(--paper)}
+.btn:hover{background:var(--ink);color:var(--paper)}
+
+/* actions */
+.horizons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 56px;margin-top:8px}
+.horizons h3{margin:0 0 12px;font-size:15px;font-weight:600}
+.todo{margin:0;padding:0;list-style:none}
+.todo li{border-top:1px solid var(--ink);padding:16px 0 22px;display:grid;grid-template-columns:2.4rem minmax(0,1fr)}
+.todo .n{font-family:var(--serif);font-weight:900;font-size:22px;line-height:1.25}
+.todo b{display:block;font-family:var(--serif);font-weight:700;font-size:21px;line-height:1.25;margin-bottom:6px}
+.todo p{margin:0;color:var(--mid);max-width:52ch}
+.todo .watch{margin-top:10px;font-size:14.5px;color:var(--ink)}
+.todo .watch::before{content:"";display:inline-block;width:16px;height:3px;background:var(--lever);vertical-align:middle;margin-right:10px}
+.notyet{margin:28px 0 0;padding-top:16px;border-top:1px solid var(--rule);max-width:72ch;color:var(--mid);font-size:15px}
+.notyet b{color:var(--ink);font-weight:500}
+@media (max-width:860px){.horizons{grid-template-columns:1fr}}
+
+/* carry-over */
+.carry{padding:104px 0 24px}
+.carry h2{margin:0 0 34px;font-family:var(--serif);font-weight:900;font-size:clamp(28px,3.4vw,40px);line-height:1.1;letter-spacing:-.01em;max-width:26ch;text-wrap:balance}
+.carry ul{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 48px}
+.carry li{border-top:1px solid var(--ink);padding-top:16px}
+.carry li b{display:block;font-family:var(--serif);font-size:22px;line-height:1.25;margin-bottom:6px}
+.carry li p{margin:0;color:var(--mid);max-width:52ch}
+@media (max-width:760px){.carry ul{grid-template-columns:1fr}}
+
+footer{margin-top:72px;border-top:1px solid var(--rule);padding:32px 0 48px;font-size:14px;color:var(--muted)}
+footer .wrap{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:24px}
+footer p{margin:0;max-width:70ch}
+footer .links{display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:flex-end;align-content:flex-start}
+footer a{color:var(--mid)}
+@media (max-width:760px){footer .wrap{grid-template-columns:1fr}footer .links{justify-content:flex-start}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="home" href="https://racheltran.vercel.app/">Rachel Tran</a>
+    <nav aria-label="Sections">
+      <a class="opt" href="#step-1">Build</a>
+      <a href="#findings">Findings</a>
+      <a class="opt" href="#actions">Actions</a>
+      <a href="https://github.com/racheltran184/SQL-Project-2">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <p class="kicker">End-to-end SQL Server project on the Brazilian E-Commerce Public Dataset by Olist</p>
+    <h1>Nine raw files, one warehouse, fourteen questions</h1>
+    <p class="lede">I loaded a Brazilian marketplace’s public data into SQL Server, modelled it as a star schema and asked it fourteen business questions. The answers point the same way: <strong>almost every customer buys once</strong>, slow deliveries drag the reviews down, and 310 sellers carry two-thirds of the revenue.</p>
+
+    <ol class="pipe" aria-label="How the data moves through the project">
+      <li><a href="#step-2"><span class="st">Step 2</span><span class="nm">Raw files</span></a><small>9 CSVs, 1,550,922 rows</small></li>
+      <li><a href="#step-3"><span class="st">Step 3</span><span class="nm">Clean</span></a><small>1,000,163 location rows become 19,015 zip codes</small></li>
+      <li><a href="#step-4"><span class="st">Step 4</span><span class="nm">Star schema</span></a><small>2 fact tables, 5 dimensions</small></li>
+      <li><a href="#step-5"><span class="st">Step 5</span><span class="nm">One view</span></a><small><code>vw_order_metrics</code>, one row per order</small></li>
+    </ol>
+    <p class="legend">Each step below lists what went in, what came out and the SQL behind it.</p>
+
+    <div class="role">
+      <p><b>My role</b>Built end to end: loading, cleaning, warehouse design, the SQL analysis and the charts.</p>
+      <p><b>The data</b>99,441 orders placed between September 2016 and October 2018. Money is in Brazilian reais (R$).</p>
+      <p><b>The tools</b>SQL Server and T-SQL (CTEs, window functions, views); Python with pandas and seaborn for the charts and the re-check.</p>
+    </div>
+  </div>
+</section>
+
+<!-- STEP 1 -->
+<section class="step" id="step-1" aria-labelledby="s1-h">
+  <div class="wrap"><div class="step-grid">
+    <div class="step-head">
+      <p class="step-no" aria-hidden="true">1</p>
+      <h2 id="s1-h"><span class="vh">Step 1: </span>Start from the business questions</h2>
+      <dl class="io"><dt>In</dt><dd>A marketplace’s public data export</dd><dt>Out</dt><dd>Four questions for the warehouse</dd></dl>
+    </div>
+    <div class="step-body">
+      <p>Olist lets small Brazilian merchants sell through one online store and ship with its logistics partners. Its public export covers <span class="num">99,441 orders</span> split across nine files: orders, items, payments, reviews, customers, sellers, products, locations and a category translation table.</p>
+      <p>The analysis is organised around four questions:</p>
+      <ol class="qs">
+        <li><span class="n">1</span><a href="#growth">Is growth steady, or driven by one-off peaks?</a></li>
+        <li><span class="n">2</span><a href="#deliveries">Where are deliveries late, and which leg of the journey is slow?</a></li>
+        <li><span class="n">3</span><a href="#customers">Do customers come back, and what moves their reviews?</a></li>
+        <li><span class="n">4</span><a href="#sellers">How much rests on a few sellers, and do customers buy more than one thing?</a></li>
+      </ol>
+    </div>
+  </div></div>
+</section>
+
+<!-- STEP 2 -->
+<section class="step" id="step-2" aria-labelledby="s2-h">
+  <div class="wrap"><div class="step-grid">
+    <div class="step-head">
+      <p class="step-no" aria-hidden="true">2</p>
+      <h2 id="s2-h"><span class="vh">Step 2: </span>Load nine raw files into SQL Server</h2>
+      <dl class="io"><dt>In</dt><dd>9 CSV files</dd><dt>Out</dt><dd>9 typed tables, 1,550,922 rows</dd><dt>SQL</dt><dd><a href="https://github.com/racheltran184/SQL-Project-2/blob/main/01_extract_raw_data.sql">01_extract_raw_data.sql</a></dd></dl>
+    </div>
+    <div class="step-body">
+      <p>I created a database, <code>olist_db</code>, with an <code>olist</code> schema and one table per file, typing each column on the way in: 32-character text keys, <code>DATETIME2</code> timestamps and <code>DECIMAL(10,2)</code> money. <code>BULK INSERT</code> loads each CSV, then a row-count query over <code>sys.partitions</code> flags any table that came in empty.</p>
+      <table class="ledger">
+        <caption>Rows loaded per file</caption>
+        <thead><tr><th scope="col">Table</th><th scope="col" class="r">Rows</th><th scope="col" class="b"><span class="vh">Share of the largest table</span></th></tr></thead>
+        <tbody>
+          <tr><th scope="row"><code>geolocation</code></th><td class="r">1,000,163</td><td class="b" aria-hidden="true"><span class="hi" style="--v:100"></span></td></tr>
+          <tr><th scope="row"><code>order_items</code></th><td class="r">112,650</td><td class="b" aria-hidden="true"><span style="--v:11.26"></span></td></tr>
+          <tr><th scope="row"><code>order_payments</code></th><td class="r">103,886</td><td class="b" aria-hidden="true"><span style="--v:10.39"></span></td></tr>
+          <tr><th scope="row"><code>orders</code></th><td class="r">99,441</td><td class="b" aria-hidden="true"><span style="--v:9.94"></span></td></tr>
+          <tr><th scope="row"><code>customers</code></th><td class="r">99,441</td><td class="b" aria-hidden="true"><span style="--v:9.94"></span></td></tr>
+          <tr><th scope="row"><code>order_reviews</code></th><td class="r">99,224</td><td class="b" aria-hidden="true"><span style="--v:9.92"></span></td></tr>
+          <tr><th scope="row"><code>products</code></th><td class="r">32,951</td><td class="b" aria-hidden="true"><span style="--v:3.29"></span></td></tr>
+          <tr><th scope="row"><code>sellers</code></th><td class="r">3,095</td><td class="b" aria-hidden="true"><span style="--v:0.31"></span></td></tr>
+          <tr><th scope="row"><code>product_category_name_translation</code></th><td class="r">71</td><td class="b" aria-hidden="true"><span style="--v:0.01"></span></td></tr>
+        </tbody>
+        <tfoot><tr><th scope="row">All nine tables</th><td class="r">1,550,922</td><td class="b"></td></tr></tfoot>
+      </table>
+      <p>Location data alone is 64% of everything loaded, because it holds many rows for each zip code. Step 3 fixes that before anything joins to it.</p>
+      <details class="sql">
+        <summary>Read the SQL: load and row check</summary>
+<pre><code><span class="c">-- 1. Customers</span>
+BULK INSERT olist.customers
+FROM '/var/opt/mssql/data/olist_customers_dataset.csv'
+WITH (FORMAT = 'CSV', FIRSTROW = 2, FIELDTERMINATOR = ',', ROWTERMINATOR = '0x0a');
+
+<span class="c">-- … the same for the other eight files, then:</span>
+
+SELECT
+    t.name AS Table_Name,
+    s.name AS Schema_Name,
+    p.rows AS Row_Count,
+    CASE
+        WHEN p.rows = 0 THEN 'EMPTY - CHECK IMPORT'
+        ELSE 'OK'
+    END AS Status
+FROM sys.tables t
+INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+INNER JOIN sys.partitions p ON t.object_id = p.object_id
+WHERE s.name = 'olist'
+  AND p.index_id IN (0, 1)
+ORDER BY p.rows DESC;</code></pre>
+        <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/01_extract_raw_data.sql">01_extract_raw_data.sql</a></p>
+      </details>
+    </div>
+  </div></div>
+</section>
+
+<!-- STEP 3 -->
+<section class="step" id="step-3" aria-labelledby="s3-h">
+  <div class="wrap"><div class="step-grid">
+    <div class="step-head">
+      <p class="step-no" aria-hidden="true">3</p>
+      <h2 id="s3-h"><span class="vh">Step 3: </span>Clean what would break the joins</h2>
+      <dl class="io"><dt>In</dt><dd>Duplicate locations, Portuguese categories, repeated reviews</dd><dt>Out</dt><dd>One row per zip code, product and review</dd><dt>SQL</dt><dd><a href="https://github.com/racheltran184/SQL-Project-2/blob/main/02_transform_build_dwh.sql">02_transform_build_dwh.sql</a></dd></dl>
+    </div>
+    <div class="step-body">
+      <p>Three problems would have multiplied rows or left gaps in the results, so each is fixed while its dimension table is built.</p>
+      <table class="ledger fixgrid">
+        <thead><tr><th scope="col">Problem</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Locations</th><td data-label="Before">1,000,163 rows, many per zip code</td><td data-label="After">19,015 zip codes, each with an average latitude and longitude and its most common city and state</td></tr>
+          <tr><th scope="row">Categories</th><td data-label="Before">73 Portuguese names; 610 products with none</td><td data-label="After">71 English names, 2 kept in Portuguese, and “Unknown” for the blanks</td></tr>
+          <tr><th scope="row">Reviews</th><td data-label="Before">99,224 rows; 814 review IDs repeated</td><td data-label="After">98,410 reviews, keeping the latest answer for each</td></tr>
+        </tbody>
+      </table>
+      <p>Lead times are guarded too: a delivery date earlier than the purchase date becomes <code>NULL</code> rather than a negative number of days.</p>
+      <details class="sql">
+        <summary>Read the SQL: zip codes and categories</summary>
+<pre><code>WITH Geo_Frequency AS (
+    SELECT
+        geolocation_zip_code_prefix,
+        geolocation_city,
+        geolocation_state,
+        COUNT(*) as freq,
+        ROW_NUMBER() OVER (PARTITION BY geolocation_zip_code_prefix ORDER BY COUNT(*) DESC) as rn
+    FROM olist.geolocation
+    GROUP BY geolocation_zip_code_prefix, geolocation_city, geolocation_state
+),
+Geo_Centroids AS (
+    SELECT
+        geolocation_zip_code_prefix,
+        AVG(geolocation_lat) as avg_lat,
+        AVG(geolocation_lng) as avg_lng
+    FROM olist.geolocation
+    GROUP BY geolocation_zip_code_prefix
+)
+SELECT
+    c.geolocation_zip_code_prefix AS zip_code,
+    c.avg_lat,
+    c.avg_lng,
+    f.geolocation_city AS city,
+    f.geolocation_state AS state
+INTO dwh.Dim_Geolocation
+FROM Geo_Centroids c
+JOIN Geo_Frequency f ON c.geolocation_zip_code_prefix = f.geolocation_zip_code_prefix
+WHERE f.rn = 1;
+
+<span class="c">-- …</span>
+
+SELECT
+    p.product_id,
+    COALESCE(t.product_category_name_english, p.product_category_name, 'Unknown') AS category_name,
+    p.product_photos_qty,
+    p.product_weight_g,
+    p.product_length_cm,
+    p.product_height_cm,
+    p.product_width_cm
+INTO dwh.Dim_Products
+FROM olist.products p
+LEFT JOIN olist.product_category_name_translation t
+    ON p.product_category_name = t.product_category_name;</code></pre>
+        <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/02_transform_build_dwh.sql">02_transform_build_dwh.sql</a></p>
+      </details>
+    </div>
+  </div></div>
+</section>
+
+<!-- STEP 4 -->
+<section class="step" id="step-4" aria-labelledby="s4-h">
+  <div class="wrap"><div class="step-grid">
+    <div class="step-head">
+      <p class="step-no" aria-hidden="true">4</p>
+      <h2 id="s4-h"><span class="vh">Step 4: </span>Shape it as a star schema</h2>
+      <dl class="io"><dt>In</dt><dd>The cleaned tables</dd><dt>Out</dt><dd>2 fact tables and 5 dimensions in schema <code>dwh</code>, each with a primary key</dd><dt>SQL</dt><dd><a href="https://github.com/racheltran184/SQL-Project-2/blob/main/02_transform_build_dwh.sql">02_transform_build_dwh.sql</a></dd></dl>
+    </div>
+    <div class="step-body">
+      <p><strong>Grain first.</strong> <code>Fact_Orders</code> holds one row per order. Item prices and freight are summed to order level before the join, so an order with three items still counts once. <code>Fact_Order_Items</code> keeps one row per item for the product, seller and basket questions.</p>
+      <p><strong>The real customer.</strong> Every order gets its own <code>customer_id</code>, so 99,441 ids belong to 96,096 people. <code>Dim_Customer</code> keeps <code>customer_unique_id</code>, the person, which is what the repeat-buyer question has to count.</p>
+    </div>
+    <figure class="schema full">
+      <svg viewBox="0 0 880 470" role="img" aria-labelledby="schema-t schema-d">
+        <title id="schema-t">Star schema of the warehouse</title>
+        <desc id="schema-d">Fact_Orders, one row per order, joins Dim_Customer on customer_id, Dim_Reviews on order_id and Dim_Geolocation through the customer zip code. Fact_Order_Items, one row per item, joins Fact_Orders on order_id, Dim_Products on product_id and Dim_Sellers on seller_id.</desc>
+        <!-- connectors -->
+        <path class="ln" d="M240 66 H325"/>
+        <path class="ln soft" d="M240 174 H325"/>
+        <path class="ln" d="M555 66 H640"/>
+        <path class="ln" d="M440 200 V280"/>
+        <path class="ln" d="M555 308 H640"/>
+        <path class="ln" d="M555 414 H640"/>
+        <text class="key" x="282" y="58" text-anchor="middle">customer_id</text>
+        <text class="key" x="282" y="166" text-anchor="middle">zip code</text>
+        <text class="key" x="597" y="58" text-anchor="middle">order_id</text>
+        <text class="key" x="450" y="245">order_id</text>
+        <text class="key" x="597" y="300" text-anchor="middle">product_id</text>
+        <text class="key" x="597" y="406" text-anchor="middle">seller_id</text>
+        <!-- dimensions, left -->
+        <g class="dim"><rect x="10" y="20" width="230" height="92" rx="8"/>
+          <text class="t" x="26" y="48">Dim_Customer</text>
+          <text class="s" x="26" y="72">99,441 ids, 96,096 people</text>
+          <text class="k" x="26" y="94">unique id, city, state, zip</text></g>
+        <g class="dim"><rect x="10" y="128" width="230" height="92" rx="8"/>
+          <text class="t" x="26" y="156">Dim_Geolocation</text>
+          <text class="s" x="26" y="180">19,015 zip codes</text>
+          <text class="k" x="26" y="202">average latitude and longitude</text></g>
+        <!-- facts -->
+        <g class="fact"><rect x="325" y="20" width="230" height="180" rx="8"/>
+          <text class="t" x="341" y="50">Fact_Orders</text>
+          <text class="s" x="341" y="74">99,441 rows, one per order</text>
+          <text class="k" x="341" y="106">order value, freight, item count</text>
+          <text class="k" x="341" y="128">lead time, delivery gap</text>
+          <text class="k" x="341" y="150">late and cancelled flags</text>
+          <text class="k" x="341" y="172">customer city, state, zip</text></g>
+        <g class="fact"><rect x="325" y="280" width="230" height="150" rx="8"/>
+          <text class="t" x="341" y="310">Fact_Order_Items</text>
+          <text class="s" x="341" y="334">112,650 rows, one per item</text>
+          <text class="k" x="341" y="366">price, freight_value</text>
+          <text class="k" x="341" y="388">product_id, seller_id</text>
+          <text class="k" x="341" y="410">order_item_id</text></g>
+        <!-- dimensions, right -->
+        <g class="dim"><rect x="640" y="20" width="230" height="92" rx="8"/>
+          <text class="t" x="656" y="48">Dim_Reviews</text>
+          <text class="s" x="656" y="72">98,410 reviews</text>
+          <text class="k" x="656" y="94">score, comment, dates</text></g>
+        <g class="dim"><rect x="640" y="262" width="230" height="92" rx="8"/>
+          <text class="t" x="656" y="290">Dim_Products</text>
+          <text class="s" x="656" y="314">32,951 products</text>
+          <text class="k" x="656" y="336">English category name</text></g>
+        <g class="dim"><rect x="640" y="368" width="230" height="92" rx="8"/>
+          <text class="t" x="656" y="396">Dim_Sellers</text>
+          <text class="s" x="656" y="420">3,095 sellers</text>
+          <text class="k" x="656" y="442">city, state, zip</text></g>
+      </svg>
+      <div class="schema-list">
+        <div><h3>Fact tables</h3><ul>
+          <li><b>Fact_Orders</b>99,441 rows, one per order: order value, freight, item count, lead time, late and cancelled flags.</li>
+          <li><b>Fact_Order_Items</b>112,650 rows, one per item: price and freight. Joins Fact_Orders on order_id.</li>
+        </ul></div>
+        <div><h3>Dimensions</h3><ul>
+          <li><b>Dim_Customer</b>Joins Fact_Orders on customer_id. 99,441 ids for 96,096 people.</li>
+          <li><b>Dim_Reviews</b>Joins Fact_Orders on order_id. 98,410 reviews.</li>
+          <li><b>Dim_Geolocation</b>Matches the customer’s zip code. 19,015 zip codes.</li>
+          <li><b>Dim_Products</b>Joins Fact_Order_Items on product_id. 32,951 products.</li>
+          <li><b>Dim_Sellers</b>Joins Fact_Order_Items on seller_id. 3,095 sellers.</li>
+        </ul></div>
+      </div>
+      <figcaption>Fact tables are shaded. Lines show the column each pair of tables joins on; the dashed line is the zip code, which links locations to customers but isn’t used by any of the fourteen queries yet.</figcaption>
+    </figure>
+    <div class="step-body full">
+      <details class="sql">
+        <summary>Read the SQL: Fact_Orders</summary>
+<pre><code><span class="c">-- FIX: Calculate Financials first (Pre-Aggregation)
+-- We must aggregate items to the Order grain to join them to Fact_Orders</span>
+WITH Order_Financials AS (
+    SELECT
+        order_id,
+        SUM(price) AS total_order_value,
+        SUM(freight_value) AS total_freight,
+        COUNT(*) AS items_count
+    FROM olist.order_items
+    GROUP BY order_id
+)
+SELECT
+    o.order_id,
+    o.customer_id,
+    o.order_status,
+    o.order_purchase_timestamp,
+
+    <span class="c">-- Financials (Added)</span>
+    ISNULL(f.total_order_value, 0) AS total_order_value,
+    ISNULL(f.total_freight, 0) AS total_freight,
+    ISNULL(f.items_count, 0) AS items_count,
+
+    <span class="c">-- Logistics</span>
+    CASE
+        WHEN o.order_delivered_customer_date &lt; o.order_purchase_timestamp THEN NULL
+        ELSE DATEDIFF(DAY, o.order_purchase_timestamp, o.order_delivered_customer_date)
+    END AS actual_lead_time_days,
+
+    DATEDIFF(DAY, o.order_delivered_customer_date, o.order_estimated_delivery_date) AS delivery_gap_days,
+
+    <span class="c">-- Flags</span>
+    CASE WHEN o.order_status = 'delivered' THEN 1 ELSE 0 END AS is_delivered,
+    CASE WHEN o.order_status IN ('canceled', 'unavailable') THEN 1 ELSE 0 END AS is_canceled,
+
+    CASE
+        WHEN o.order_delivered_customer_date &gt; o.order_estimated_delivery_date THEN 1
+        ELSE 0
+    END AS is_late_delivery,
+
+    <span class="c">-- Dimensions</span>
+    c.customer_city,
+    c.customer_state,
+    c.customer_zip_code_prefix AS customer_zip
+
+INTO dwh.Fact_Orders
+FROM olist.orders o
+LEFT JOIN olist.customers c ON o.customer_id = c.customer_id
+LEFT JOIN Order_Financials f ON o.order_id = f.order_id;</code></pre>
+        <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/02_transform_build_dwh.sql">02_transform_build_dwh.sql</a></p>
+      </details>
+    </div>
+  </div></div>
+</section>
+
+<!-- STEP 5 -->
+<section class="step" id="step-5" aria-labelledby="s5-h">
+  <div class="wrap"><div class="step-grid">
+    <div class="step-head">
+      <p class="step-no" aria-hidden="true">5</p>
+      <h2 id="s5-h"><span class="vh">Step 5: </span>Put one view in front of the analysts</h2>
+      <dl class="io"><dt>In</dt><dd>The seven warehouse tables</dd><dt>Out</dt><dd><code>vw_order_metrics</code>, one row per order</dd><dt>SQL</dt><dd><a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql">03_business_queries.sql</a>, part A</dd></dl>
+    </div>
+    <div class="step-body">
+      <p>Fourteen questions shouldn’t mean fourteen copies of the same joins. <code>vw_order_metrics</code> joins <code>Fact_Orders</code> to customers and reviews, renames columns for reading (<code>purchase_ts</code>, <code>gmv</code>, and <code>delivery_gap_days</code>, where a positive number means early) and fixes two business rules in one place:</p>
+      <ul>
+        <li>An order’s category is the category of its most expensive item.</li>
+        <li>A 1 or 2 star review counts as a detractor, 4 or 5 as a promoter, and 3 as passive.</li>
+      </ul>
+      <p>Eight of the fourteen queries read from this view; the other six go straight to the fact tables.</p>
+      <details class="sql">
+        <summary>Read the SQL: the two business rules</summary>
+<pre><code>    <span class="c">-- Product Category Logic:
+    -- An order might have multiple items. We pick the category of the most expensive item
+    -- to define the "Primary Category" of the order.</span>
+    (SELECT TOP 1 p.category_name
+     FROM dwh.Fact_Order_Items foi
+     JOIN dwh.Dim_Products p ON foi.product_id = p.product_id
+     WHERE foi.order_id = f.order_id
+     ORDER BY foi.price DESC) AS category_name,
+
+    <span class="c">-- …</span>
+
+    <span class="c">-- Quality Metrics</span>
+    r.review_score,
+    CASE
+        WHEN r.review_score &lt;= 2 THEN 'Detractor'
+        WHEN r.review_score &gt;= 4 THEN 'Promoter'
+        ELSE 'Passive'
+    END AS nps_bucket</code></pre>
+        <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql">03_business_queries.sql</a></p>
+      </details>
+    </div>
+  </div></div>
+</section>
+
+<!-- STEP 6 -->
+<section class="step" id="findings" aria-labelledby="s6-h">
+  <div class="wrap">
+    <div class="step-grid wide">
+      <div class="step-head">
+        <p class="step-no" aria-hidden="true">6</p>
+        <h2 id="s6-h"><span class="vh">Step 6: </span>Ask the warehouse fourteen questions</h2>
+        <dl class="io"><dt>In</dt><dd>The view and the fact tables</dd><dt>Out</dt><dd>14 saved results in <code>Result/</code> and 12 charts, grouped here into four findings</dd><dt>SQL</dt><dd><a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql">03_business_queries.sql</a>, parts B and C</dd></dl>
+      </div>
+    </div>
+
+    <article class="finding" id="growth" aria-labelledby="f1-h">
+      <div class="finding-head">
+        <h3 id="f1-h">Growth: 7.5× in twenty months, then a plateau</h3>
+        <p>Queries Q1 and Q3</p>
+      </div>
+      <div class="finding-body">
+        <div class="story">
+          <div>
+            <h4>What the numbers said</h4>
+            <p>Delivered revenue rose from <span class="num">R$112K</span> in January 2017 to <span class="num">R$839K</span> in August 2018, 7.5×. It peaked in November 2017, the month of Black Friday, at <span class="num">R$991K</span>. Through 2018 it stayed between R$0.83M and R$0.98M a month: January to August 2018 was <span class="num">2.4×</span> the same months of 2017, not 7.5×.</p>
+            <p>Health &amp; beauty (R$1.23M), watches &amp; gifts (R$1.17M) and bed, bath &amp; table (R$1.03M) lead the ten biggest categories.</p>
+          </div>
+          <div>
+            <h4>What it means</h4>
+            <p>The first year was growth from a small base, and by 2018 the curve is flat. More revenue now has to come from existing customers ordering again, which the customer finding shows almost never happens.</p>
+          </div>
+          <details class="sql">
+            <summary>Read the SQL: Q3 monthly trend</summary>
+<pre><code><span class="c">-- Q3. Monthly Sales Trend (Seasonality)</span>
+SELECT
+    FORMAT(purchase_date, 'yyyy-MM') AS Sales_Month,
+    FORMAT(SUM(gmv), 'C', 'en-US') AS Revenue
+FROM dwh.vw_order_metrics
+WHERE order_status = 'delivered' AND purchase_date &gt;= '2017-01-01'
+GROUP BY FORMAT(purchase_date, 'yyyy-MM')
+ORDER BY Sales_Month DESC;</code></pre>
+            <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql">03_business_queries.sql</a></p>
+          </details>
+        </div>
+        <figure class="shot">
+          <a class="frame" href="images/monthly_sales_trend.png"><img src="images/monthly_sales_trend.png" width="1006" height="597" alt="Line chart of monthly delivered revenue, January 2017 to August 2018: it climbs from about 0.1 million to 0.65 million by October 2017, spikes near 1.0 million in November 2017, then stays between about 0.83 and 0.98 million through 2018."></a>
+          <figcaption>Monthly delivered revenue, January 2017 to August 2018 (Q3). The axis says $, but the values are reais.</figcaption>
+        </figure>
+      </div>
+      <div class="more">
+        <figure>
+          <a class="frame" href="images/top_categories_revenue.png"><img src="images/top_categories_revenue.png" width="1019" height="555" loading="lazy" alt="Horizontal bar chart of the ten categories with the most delivered revenue: health_beauty, watches_gifts, bed_bath_table, sports_leisure, computers_accessories, furniture_decor, housewares, cool_stuff, auto and toys, from about 1.23 million down to 0.47 million."></a>
+          <figcaption>The ten categories with the most delivered revenue (Q1).</figcaption>
+        </figure>
+      </div>
+    </article>
+
+    <article class="finding" id="deliveries" aria-labelledby="f2-h">
+      <div class="finding-head">
+        <h3 id="f2-h">Deliveries: the carrier leg is where the days go</h3>
+        <p>Queries Q2, Q7, Q9, Q10 and Q11</p>
+      </div>
+      <div class="finding-body">
+        <div class="story">
+          <div>
+            <h4>What the numbers said</h4>
+            <p><span class="num">8.1%</span> of delivered orders arrived after the date the customer was given. Late rates are highest in the Northeast: Alagoas <span class="num">24.0%</span>, Maranhão 19.6%, Piauí 15.9%, Ceará 15.4% and Sergipe 15.2%. By count, São Paulo and Rio de Janeiro still produce the most late orders, 2,391 and 1,671.</p>
+            <p>In the five slowest states, payment approval takes under a day and sellers hand parcels to the carrier within 2.5 to 3.3 days, while transit averages <span class="num">20 to 26 days</span>. These states are small, though: Roraima, the slowest, had 41 delivered orders.</p>
+            <p><span class="num">2,963</span> orders (3.0%) never reached “delivered”. Of the 1,107 stuck at “shipped”, 1,101 were bought at least 60 days before the data ends.</p>
+            <p>Shipping weighs most on electronics: <span class="num">68.8%</span> of the item price on average. The typical electronics order is cheap (median R$21.90), and on 22% of them shipping costs more than the item.</p>
+          </div>
+          <div>
+            <h4>What it means</h4>
+            <p>Delivery promises are least reliable in the Northeast, and the slow leg is transit, so the fix sits with carriers and with the dates shown at checkout rather than with sellers. Small, cheap items are where freight hurts most.</p>
+          </div>
+          <details class="sql">
+            <summary>Read the SQL: Q11 where the days go</summary>
+<pre><code><span class="c">-- Q11. Logistics Breakdown (Bottleneck Analysis)
+-- Insight: Does the delay happen at Approval, Packing (Seller), or Transit (Carrier)?</span>
+SELECT TOP 5
+    customer_state,
+    AVG(DATEDIFF(HOUR, purchase_ts, approved_ts))/24.0 as Days_To_Approve,
+    AVG(DATEDIFF(HOUR, approved_ts, carrier_ts))/24.0 as Days_To_Pack,
+    AVG(DATEDIFF(HOUR, carrier_ts, delivered_ts))/24.0 as Days_In_Transit
+FROM dwh.vw_order_metrics
+WHERE order_status = 'delivered'
+GROUP BY customer_state
+ORDER BY Days_In_Transit DESC;</code></pre>
+            <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql">03_business_queries.sql</a></p>
+          </details>
+        </div>
+        <figure class="shot viz" aria-labelledby="late-t">
+          <p class="viz-title" id="late-t">Late deliveries by customer state, % of delivered orders</p>
+          <ol class="bars ref" style="--max:26;--ref:8.1">
+            <li class="hi"><span class="blab">AL Alagoas<small>397 orders</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:24.0"></span></span><span class="val">24.0%</span></li>
+            <li class="hi"><span class="blab">MA Maranhão<small>717 orders</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:19.6"></span></span><span class="val">19.6%</span></li>
+            <li class="hi"><span class="blab">PI Piauí<small>476 orders</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:15.9"></span></span><span class="val">15.9%</span></li>
+            <li class="hi"><span class="blab">CE Ceará<small>1,279 orders</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:15.4"></span></span><span class="val">15.4%</span></li>
+            <li class="hi"><span class="blab">SE Sergipe<small>335 orders</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:15.2"></span></span><span class="val">15.2%</span></li>
+            <li><span class="blab">BA Bahia<small>3,256 orders</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:14.1"></span></span><span class="val">14.1%</span></li>
+            <li><span class="blab">RJ Rio de Janeiro<small>12,350 orders</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:13.5"></span></span><span class="val">13.5%</span></li>
+            <li><span class="blab">TO Tocantins<small>274 orders</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:12.8"></span></span><span class="val">12.8%</span></li>
+          </ol>
+          <ul class="viz-key">
+            <li><span class="sw" aria-hidden="true"></span>The five highest rates, all in the Northeast</li>
+            <li><span class="dash" aria-hidden="true"></span>All of Brazil, 8.1%</li>
+          </ul>
+          <figcaption>Redrawn from Q2 with the sort fixed (step 7). States with more than 100 delivered orders; the eight highest of 24.</figcaption>
+        </figure>
+      </div>
+      <div class="more">
+        <figure>
+          <a class="frame" href="images/logistics_bottlenecks.png"><img src="images/logistics_bottlenecks.png" width="1001" height="561" loading="lazy" alt="Stacked bar chart of days spent approving, packing and in transit for the five states with the longest transit: Roraima, Amapá, Amazonas, Alagoas and Pará. Transit makes up 20 to 26 of the roughly 24 to 29 days in each."></a>
+          <figcaption>Days spent approving, packing and in transit, for the five states with the longest transit (Q11).</figcaption>
+        </figure>
+        <figure>
+          <a class="frame" href="images/freight_ratio.png"><img src="images/freight_ratio.png" width="1088" height="553" loading="lazy" alt="Bar chart of average shipping cost as a share of item price for the ten highest categories: electronics 68.8%, telephony 50.8%, home appliances 39.4%, then between 32% and 38% for the rest."></a>
+          <figcaption>Average shipping cost as a share of item price, for the ten highest categories with more than 500 orders (Q7).</figcaption>
+        </figure>
+      </div>
+    </article>
+
+    <article class="finding" id="customers" aria-labelledby="f3-h">
+      <div class="finding-head">
+        <h3 id="f3-h">Customers: 97% order once, and slow deliveries cost stars</h3>
+        <p>Queries Q4, Q5, Q6 and Q14</p>
+      </div>
+      <div class="finding-body">
+        <div class="story">
+          <div>
+            <h4>What the numbers said</h4>
+            <p>Of <span class="num">96,096</span> customers, 93,099 (<span class="num">96.9%</span>) ordered only once. Just 2,997 came back.</p>
+            <p>Reviews hold up until delivery passes 20 days, then fall sharply: <span class="num">37.0%</span> of reviews for orders that took more than 20 days are 1 or 2 stars, against 7.2% for orders delivered within 5 days. The average drops from 4.44 to 3.16 stars.</p>
+            <p>Orders peak on weekdays, about 175 a day on Mondays and Tuesdays against 123 on Saturdays, with busy hours from 10:00 to 16:00 and again from 20:00 to 22:00. A third of orders come in after 18:00. Credit cards pay for 76.9% of orders, and boleto, a bank payment slip, for 19.9%.</p>
+          </div>
+          <div>
+            <h4>What it means</h4>
+            <p>Retention is the biggest gap, and delivery time is the lever the data can see. The weekday pattern could mean people shop from work, or that some buyers are businesses; the data can’t tell these apart, so it’s a question to test rather than a conclusion.</p>
+          </div>
+          <details class="sql">
+            <summary>Read the SQL: Q5 repeat buyers</summary>
+<pre><code><span class="c">-- Q5. Customer Retention Rate (Lifetime Value Check)</span>
+WITH CustomerFrequency AS (
+    SELECT customer_unique_id, COUNT(DISTINCT order_id) as Lifetime_Orders
+    FROM dwh.Dim_Customer c
+    JOIN dwh.Fact_Orders f ON c.customer_id = f.customer_id
+    GROUP BY customer_unique_id
+)
+SELECT
+    CASE WHEN Lifetime_Orders = 1 THEN 'One-Time Buyer' ELSE 'Repeat Buyer' END AS Buyer_Type,
+    COUNT(*) as Customer_Count,
+    FORMAT(COUNT(*) * 1.0 / (SELECT COUNT(*) FROM CustomerFrequency), 'P') as Share_of_Base
+FROM CustomerFrequency
+GROUP BY CASE WHEN Lifetime_Orders = 1 THEN 'One-Time Buyer' ELSE 'Repeat Buyer' END;</code></pre>
+            <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql">03_business_queries.sql</a></p>
+          </details>
+        </div>
+        <figure class="shot viz" aria-labelledby="rev-t">
+          <p class="viz-title" id="rev-t">Share of reviews with 1 or 2 stars, by delivery time</p>
+          <ol class="bars" style="--max:40">
+            <li><span class="blab">0–5 days<small>16.7K orders, 4.44 stars</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:7.2"></span></span><span class="val">7.2%</span></li>
+            <li><span class="blab">6–10 days<small>33.2K orders, 4.35 stars</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:8.4"></span></span><span class="val">8.4%</span></li>
+            <li><span class="blab">11–20 days<small>33.6K orders, 4.21 stars</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:10.5"></span></span><span class="val">10.5%</span></li>
+            <li class="hi"><span class="blab">20+ days<small>13.2K orders, 3.16 stars</small></span><span class="track" aria-hidden="true"><span class="fill" style="--v:37.0"></span></span><span class="val">37.0%</span></li>
+          </ol>
+          <figcaption>Redrawn from Q4 with the average fixed (step 7): the saved chart shows 4, 4, 4 and 3 stars. Delivered orders with a review.</figcaption>
+        </figure>
+      </div>
+      <div class="more">
+        <figure class="span">
+          <a class="frame" href="images/purchasing_heatmap_annotated.png"><img src="images/purchasing_heatmap_annotated.png" width="1066" height="704" loading="lazy" alt="Heatmap of orders by day of week and hour: busiest from 10:00 to 16:00 Monday to Friday and from 20:00 to 22:00 early in the week; Saturday is the quietest day, and Sunday evenings pick up."></a>
+          <figcaption>Orders by day of week and hour of purchase (Q14).</figcaption>
+        </figure>
+        <figure class="pie">
+          <a class="frame" href="images/retention_rate.png"><img src="images/retention_rate.png" width="482" height="505" loading="lazy" alt="Pie chart: 96.9% of customers are one-time buyers and 3.1% are repeat buyers."></a>
+          <figcaption>One-time against repeat buyers (Q5).</figcaption>
+        </figure>
+        <figure>
+          <a class="frame" href="images/payment_methods.png"><img src="images/payment_methods.png" width="696" height="476" loading="lazy" alt="Bar chart of payment value by method: credit card about 12.5 million, boleto 2.9 million, voucher 0.4 million and debit card 0.2 million."></a>
+          <figcaption>Payment value by method (Q6). Values are reais.</figcaption>
+        </figure>
+      </div>
+    </article>
+
+    <article class="finding" id="sellers" aria-labelledby="f4-h">
+      <div class="finding-head">
+        <h3 id="f4-h">Sellers and baskets: a few hundred sellers, single-product orders</h3>
+        <p>Queries Q8, Q12 and Q13</p>
+      </div>
+      <div class="finding-body">
+        <div class="story">
+          <div>
+            <h4>What the numbers said</h4>
+            <p>The top 10% of sellers, 310 of 3,095, take <span class="num">67.6%</span> of item revenue. The top 100 alone take 45.1%; the bottom half of sellers share 3.2%.</p>
+            <p>Big sellers are mostly well rated. Of the 20 with the most orders, only one averages below 3.5 stars (3.35 on 982 orders). Five sellers with more than 50 orders average under 3 stars, and together they hold 0.6% of revenue.</p>
+            <p>Almost nobody buys two different things: <span class="num">3.3%</span> of orders contain two different products and 0.8% span two categories. The most common pair, bed, bath &amp; table with furniture &amp; décor, appears together in 70 orders.</p>
+          </div>
+          <div>
+            <h4>What it means</h4>
+            <p>Losing a few top sellers would cost far more than any quality problem, so they need looking after. And with nearly every order a single product, basket size is a lever nobody has pulled yet.</p>
+          </div>
+          <details class="sql">
+            <summary>Read the SQL: Q8 seller deciles</summary>
+<pre><code><span class="c">-- Q8. Seller Concentration (Pareto Principle)</span>
+WITH SellerSales AS (
+    SELECT seller_id, SUM(price) as Revenue
+    FROM dwh.Fact_Order_Items
+    GROUP BY seller_id
+),
+RankedSellers AS (
+    SELECT Revenue, NTILE(10) OVER (ORDER BY Revenue DESC) as Decile
+    FROM SellerSales
+)
+SELECT
+    Decile,
+    FORMAT(SUM(Revenue), 'C', 'en-US') as Total_Revenue,
+    FORMAT(SUM(Revenue) * 1.0 / (SELECT SUM(Revenue) FROM SellerSales), 'P') as Share_of_Total
+FROM RankedSellers
+GROUP BY Decile
+ORDER BY Decile;</code></pre>
+            <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql">03_business_queries.sql</a></p>
+          </details>
+        </div>
+        <figure class="shot">
+          <a class="frame" href="images/seller_concentration.png"><img src="images/seller_concentration.png" width="908" height="553" loading="lazy" alt="Bar and line chart of revenue share by seller decile: the top 10% of sellers take about 68% of revenue and the next 10% about 15%; the cumulative line passes 90% at the third decile, and each of the bottom six deciles has under 2.5%."></a>
+          <figcaption>Share of item revenue by seller decile, with the running total (Q8).</figcaption>
+        </figure>
+      </div>
+      <div class="more">
+        <figure>
+          <a class="frame" href="images/seller.png"><img src="images/seller.png" width="1600" height="800" loading="lazy" alt="Bar chart of the 20 sellers with the most orders, from about 1,850 down to 565, coloured by average rating from 3 to 5 stars. All but one sit between 3.8 and 4.4 stars; one seller with about 980 orders averages 3.35."></a>
+          <figcaption>The 20 sellers with the most orders, coloured by average rating (Q13).</figcaption>
+        </figure>
+        <figure>
+          <a class="frame" href="images/product_affinity.png"><img src="images/product_affinity.png" width="950" height="659" loading="lazy" alt="Flow diagram of the five category pairs most often bought together: bed_bath_table with furniture_decor is the widest band, followed by furniture_decor with garden_tools, bed_bath_table with home_confort, and two pairs with housewares."></a>
+          <figcaption>The five category pairs most often bought together (Q12). The widest band is 128 item pairs across 70 orders.</figcaption>
+        </figure>
+      </div>
+    </article>
+  </div>
+</section>
+<!-- STEP 7 -->
+<section class="step" id="actions" aria-labelledby="s8-h">
+  <div class="wrap">
+    <div class="step-grid wide">
+      <div class="step-head">
+        <p class="step-no" aria-hidden="true">7</p>
+        <h2 id="s8-h"><span class="vh">Step 7: </span>Turn the findings into actions</h2>
+        <dl class="io"><dt>In</dt><dd>Four findings</dd><dt>Out</dt><dd>Eight actions, each with a number to watch</dd></dl>
+      </div>
+      <div class="horizons">
+        <div>
+          <h3>In the next three months</h3>
+          <ol class="todo">
+            <li><span class="n" aria-hidden="true">1</span><div><b>Win the second order</b><p>97% of customers buy once. Give first-time buyers whose order arrived on time a reason to come back, and hold out a control group.</p><p class="watch">Watch: 90-day repeat rate against the control</p></div></li>
+            <li><span class="n" aria-hidden="true">2</span><div><b>Promise dates carriers can keep</b><p>Between 15% and 24% of orders arrive late in Alagoas, Maranhão, Piauí, Ceará and Sergipe, and reviews collapse past 20 days. Recalibrate the dates shown there and hold carriers to transit times.</p><p class="watch">Watch: late rate by state and the share of 1–2 star reviews</p></div></li>
+            <li><span class="n" aria-hidden="true">3</span><div><b>Chase the 1,101 stuck orders</b><p>Each order sitting at “shipped” for 60+ days is a customer who paid and got nothing. Trace them with carriers, then refund or resend.</p><p class="watch">Watch: orders stuck at “shipped” for more than 30 days</p></div></li>
+            <li><span class="n" aria-hidden="true">4</span><div><b>Review the five lowest-rated large sellers</b><p>Under 3 stars on 50+ orders, with 0.6% of revenue between them: cheap to coach or remove.</p><p class="watch">Watch: their ratings and cancellations</p></div></li>
+          </ol>
+        </div>
+        <div>
+          <h3>In six to twelve months</h3>
+          <ol class="todo">
+            <li><span class="n" aria-hidden="true">5</span><div><b>Look after the top 100 sellers</b><p>They hold 45% of revenue. Account managers and terms worth staying for cost less than replacing them.</p><p class="watch">Watch: top-100 revenue share and how many leave</p></div></li>
+            <li><span class="n" aria-hidden="true">6</span><div><b>Test cross-selling on bedding and décor</b><p>Only 3.3% of orders hold two different products. Pair bed, bath &amp; table with furniture &amp; décor in a “bought together” slot.</p><p class="watch">Watch: attach rate and order value against a control</p></div></li>
+            <li><span class="n" aria-hidden="true">7</span><div><b>Rethink shipping on small electronics</b><p>On 22% of electronics orders, shipping costs more than the item. Test a basket minimum for flat-rate shipping.</p><p class="watch">Watch: electronics conversion and freight per order</p></div></li>
+            <li><span class="n" aria-hidden="true">8</span><div><b>Find out who buys on weekdays</b><p>Weekday daytime peaks could be office workers or businesses. Ask at checkout before building anything for business buyers.</p><p class="watch">Watch: share of orders placed by businesses</p></div></li>
+          </ol>
+        </div>
+      </div>
+      <p class="notyet"><b>Not yet: a fulfilment hub in the North.</b> Transit to Roraima averages 25.6 days, but Roraima, Amapá and Amazonas together had 254 delivered orders in two years, too few to pay for a warehouse today.</p>
+    </div>
+  </div>
+</section>
+
+<section class="carry" aria-labelledby="carry-h">
+  <div class="wrap">
+    <h2 id="carry-h">What carries over to an e‑commerce analyst role</h2>
+    <ul>
+      <li><b>Fix the grain before the join</b><p>Items were summed to one row per order before joining, so a three-item order never counts three times.</p></li>
+      <li><b>Model once, ask many times</b><p>One star schema and one view answered all fourteen questions with the same definitions.</p></li>
+      <li><b>Check the numbers against the source</b><p>Rebuilding the queries outside SQL caught two traps: integer averages and percentages sorted as text.</p></li>
+      <li><b>End each finding with a test</b><p>Every action above names the number that will show whether it worked.</p></li>
+    </ul>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Built on the Brazilian E-Commerce Public Dataset by Olist, published on <a href="https://www.kaggle.com/olistbr/brazilian-ecommerce">Kaggle</a>. Not affiliated with Olist. Money is in Brazilian reais. © 2026 Rachel Tran.</p>
+    <div class="links">
+      <a href="https://racheltran.vercel.app/">Portfolio</a>
+      <a href="https://racheltran184.github.io/tiktok-shop-sea-case-challenge/">TikTok Shop case study</a>
+      <a href="https://www.linkedin.com/in/racheltran184/">LinkedIn</a>
+      <a href="https://github.com/racheltran184">GitHub</a>
+      <a href="mailto:rachel.hantran@gmail.com">Email</a>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
