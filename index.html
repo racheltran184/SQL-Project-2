@@ -870,63 +870,13 @@ ORDER BY Decile;</code></pre>
     </article>
   </div>
 </section>
-
 <!-- STEP 7 -->
-<section class="lab" id="recheck" aria-labelledby="s7-h">
-  <div class="wrap">
-    <div class="step-grid wide">
-      <div class="step-head">
-        <p class="step-no" aria-hidden="true">7</p>
-        <h2 id="s7-h"><span class="vh">Step 7: </span>Every number, re-checked</h2>
-        <dl class="io"><dt>In</dt><dd>The raw CSVs and the 14 saved results</dd><dt>Out</dt><dd>14 of 14 reproduced, 3 queries corrected</dd><dt>Code</dt><dd><a href="https://github.com/racheltran184/SQL-Project-2/blob/main/analysis/recheck_numbers.py">analysis/recheck_numbers.py</a></dd></dl>
-      </div>
-    </div>
-    <div class="lab-intro">
-      <div>
-        <p>A Python script rebuilds the warehouse and all fourteen queries in pandas, following SQL Server’s rules, and compares each result with the CSV saved in <code>Result/</code>. Every result reproduces; the largest gaps, 0.27% of a month’s revenue, 3 orders in one heatmap cell and 0.04 stars in one seller’s rating, come from how ties are broken when duplicate reviews are removed. The rebuild also showed where three queries go wrong, and this page uses the corrected figures.</p>
-        <div class="acts"><a class="btn solid" href="https://github.com/racheltran184/SQL-Project-2/blob/main/analysis/recheck_numbers.py">Open the script</a></div>
-      </div>
-      <p class="tally">14 of 14<small>saved query results reproduced from the raw CSVs</small></p>
-    </div>
-
-    <h3>Three queries that needed a fix</h3>
-    <table class="ledger fixgrid">
-      <thead><tr><th scope="col">Query</th><th scope="col">What went wrong</th><th scope="col">Saved result</th><th scope="col">Corrected</th></tr></thead>
-      <tbody>
-        <tr><th scope="row">Q4, delivery speed and reviews</th><td data-label="What went wrong">In SQL Server, <code>AVG()</code> of an <code>INT</code> column returns an <code>INT</code>, so 4.44 is stored as 4.</td><td data-label="Saved"><s>4, 4, 4, 3 stars</s></td><td data-label="Corrected">4.44, 4.35, 4.21, 3.16 stars</td></tr>
-        <tr><th scope="row">Q2, late deliveries by state</th><td data-label="What went wrong"><code>Late_Rate</code> is <code>FORMAT()</code>ed text, so <code>ORDER BY</code> puts “9.76%” above “24.00%”.</td><td data-label="Saved"><s>SC, GO, RS, DF, MT</s></td><td data-label="Corrected">AL, MA, PI, CE, SE</td></tr>
-        <tr><th scope="row">Q1, top categories</th><td data-label="What went wrong">The same integer average in the rating column.</td><td data-label="Saved"><s>4.00 for all ten</s></td><td data-label="Corrected">4.01 to 4.24</td></tr>
-      </tbody>
-    </table>
-
-    <details class="sql">
-      <summary>Read the two fixes</summary>
-<pre><code><span class="c">-- Q1 and Q4: cast before averaging</span>
-CAST(AVG(review_score) AS DECIMAL(3,2))                  <span class="c">-- saved: 4.44 becomes 4.00</span>
-CAST(AVG(CAST(review_score AS FLOAT)) AS DECIMAL(3,2))   <span class="c">-- corrected</span>
-
-<span class="c">-- Q2: sort by the number, not the formatted text</span>
-ORDER BY Late_Rate DESC                                  <span class="c">-- saved</span>
-ORDER BY SUM(CASE WHEN is_late_delivery = 1 THEN 1 ELSE 0 END) * 1.0 / COUNT(*) DESC  <span class="c">-- corrected</span></code></pre>
-    </details>
-
-    <h3>Smaller things the rebuild found</h3>
-    <ul class="notes">
-      <li><b>A hidden character in category names</b>The translation file has Windows line endings but was loaded with <code>ROWTERMINATOR = '0x0a'</code>, so every English category name ends in a carriage return. <code>REPLACE(…, CHAR(13), '')</code> removes it.</li>
-      <li><b>Money is in reais</b><code>FORMAT(…, 'C', 'en-US')</code> prints a $ sign, so the saved results and chart axes show $ for amounts in R$.</li>
-      <li><b>Orders with two reviews</b>285 orders have more than one review, so they appear more than once in <code>vw_order_metrics</code> and add 0.23% to delivered revenue.</li>
-    </ul>
-    <p class="run">To run it from the repository root: <code>pip install pandas</code>, then <code>python analysis/recheck_numbers.py</code>.</p>
-  </div>
-</section>
-
-<!-- STEP 8 -->
 <section class="step" id="actions" aria-labelledby="s8-h">
   <div class="wrap">
     <div class="step-grid wide">
       <div class="step-head">
-        <p class="step-no" aria-hidden="true">8</p>
-        <h2 id="s8-h"><span class="vh">Step 8: </span>Turn the findings into actions</h2>
+        <p class="step-no" aria-hidden="true">7</p>
+        <h2 id="s8-h"><span class="vh">Step 7: </span>Turn the findings into actions</h2>
         <dl class="io"><dt>In</dt><dd>Four findings</dd><dt>Out</dt><dd>Eight actions, each with a number to watch</dd></dl>
       </div>
       <div class="horizons">
