@@ -1,0 +1,2012 @@
+<!DOCTYPE html>
+<html lang="en-AU" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Olist E-Commerce Strategy Case · SQL Analytics | Rachel Tran</title>
+  <meta name="description" content="Case study: a SQL Server warehouse built from 99,441 Olist marketplace orders, four executive diagnoses (growth, fulfilment, retention, seller concentration) and a sequenced roadmap with KPI gates."/>
+  <meta name="author" content="Rachel Tran"/>
+  <meta property="og:type" content="article"/>
+  <meta property="og:title" content="From Marketplace Data to Commercial Strategy · Rachel Tran"/>
+  <meta property="og:description" content="99,441 orders rebuilt into a star-schema warehouse, then four executive questions taken from problem to pain point, solution and operations."/>
+  <meta property="og:url" content="https://racheltran184.github.io/SQL-Project-2/"/>
+  <meta property="og:image" content="https://racheltran184.github.io/SQL-Project-2/images/purchasing_heatmap_annotated.png"/>
+  <meta name="twitter:card" content="summary_large_image"/>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230d0d0d'/%3E%3Ctext x='32' y='45' font-family='Georgia,serif' font-size='38' font-style='italic' font-weight='700' text-anchor='middle' fill='%23ffffff'%3ER%3C/text%3E%3C/svg%3E"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <script>
+    // Set the theme before first paint: saved choice, else the OS setting.
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem('rt-theme'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <style>
+    /* ── LIGHT / DARK TOKENS (same as the portfolio) ── */
+    :root, [data-theme="light"] {
+      --white: #ffffff;
+      --off: #f9f9f7;
+      --black: #0d0d0d;
+      --mid: #555;
+      --light: #aaa;
+      --border: #e8e8e8;
+      --accent: #0d0d0d;
+      --tag-bg: #f3f3f1;
+      --serif: 'Playfair Display', Georgia, serif;
+      --sans: 'Outfit', sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --surface: #f3f3f1;
+      --nav-bg: rgba(255,255,255,0.92);
+      /* chart roles: ink = the data, ctx = de-emphasised context */
+      --viz-ink: #0d0d0d;
+      --viz-ctx: #a9a7a1;
+      --viz-muted: #706e68;
+      --viz-grid: #e8e8e8;
+      --viz-axis: #c4c3bd;
+      --outline: #d2d1cc;
+    }
+    [data-theme="dark"] {
+      --white: #0e0e0d;
+      --off: #141413;
+      --black: #eeecea;
+      --mid: #9e9c96;
+      --light: #5a5955;
+      --border: #2a2a28;
+      --accent: #eeecea;
+      --tag-bg: #1e1e1c;
+      --surface: #1a1a18;
+      --nav-bg: rgba(14,14,13,0.92);
+      --viz-ink: #eeecea;
+      --viz-ctx: #5c5a55;
+      --viz-muted: #918f89;
+      --viz-grid: #2a2a28;
+      --viz-axis: #45443f;
+      --outline: #3a3a37;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+    body {
+      font-family: var(--sans);
+      background: var(--white);
+      color: var(--black);
+      font-size: 16px;
+      line-height: 1.6;
+      overflow-x: hidden;
+      transition: background .3s, color .3s;
+    }
+    a { color: inherit; }
+    .skip { position: absolute; left: -999px; top: 0; background: var(--black); color: var(--white); padding: .6rem 1rem; z-index: 400; }
+    .skip:focus { left: 1rem; top: .6rem; }
+    :focus-visible { outline: 2px solid var(--black); outline-offset: 3px; }
+
+    /* ─── NAV ─── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      background: var(--nav-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+      height: 62px;
+      display: flex; align-items: center;
+      padding: 0 6vw;
+      justify-content: space-between;
+    }
+    .nav-logo { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; color: var(--black); text-decoration: none; letter-spacing: 0.01em; }
+    .nav-logo span { font-family: var(--sans); font-weight: 400; font-size: .78rem; color: var(--mid); margin-left: .5rem; letter-spacing: .02em; }
+    .nav-links { display: flex; gap: 1.9rem; list-style: none; }
+    .nav-links a {
+      font-size: 0.78rem; font-weight: 500;
+      letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--mid); text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--black); }
+    .nav-right { display: flex; align-items: center; gap: 0.75rem; }
+    .theme-toggle {
+      width: 38px; height: 38px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      background: transparent; color: var(--mid);
+      cursor: pointer; transition: border-color .2s, color .2s, background .2s;
+    }
+    .theme-toggle:hover { border-color: var(--black); color: var(--black); background: var(--off); }
+    .nav-cta {
+      font-size: 0.8rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      background: var(--black); color: var(--white);
+      padding: 0.5rem 1.2rem; border-radius: 2px;
+      text-decoration: none; transition: opacity 0.2s;
+    }
+    .nav-cta:hover { opacity: 0.75; }
+
+    /* ─── HERO ─── */
+    #hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; justify-content: center;
+      padding: 110px 6vw 70px;
+      position: relative; overflow: hidden;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-inner {
+      max-width: 1160px; margin: 0 auto; width: 100%;
+      display: grid; grid-template-columns: 1.15fr 0.85fr;
+      align-items: center; gap: 4rem;
+    }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      font-size: 0.75rem; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--mid); margin-bottom: 1.5rem;
+      opacity: 0; animation: fadeUp 0.6s 0.1s ease forwards;
+    }
+    .hero-eyebrow span { display: inline-block; width: 28px; height: 1px; background: var(--mid); }
+    h1.hero-name {
+      font-family: var(--serif);
+      font-size: clamp(46px, 6vw, 84px);
+      font-weight: 900; line-height: 1.02;
+      letter-spacing: -0.03em; color: var(--black);
+      margin-bottom: 1.5rem;
+      opacity: 0; animation: fadeUp 0.6s 0.2s ease forwards;
+    }
+    h1.hero-name .italic { font-style: italic; font-weight: 700; }
+    .hero-sub {
+      font-size: 1.08rem; font-weight: 300;
+      color: var(--mid); line-height: 1.75;
+      max-width: 520px; margin-bottom: 2.25rem;
+      opacity: 0; animation: fadeUp 0.6s 0.35s ease forwards;
+    }
+    .hero-sub strong { color: var(--black); font-weight: 500; }
+    .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; opacity: 0; animation: fadeUp 0.6s 0.5s ease forwards; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.45rem;
+      padding: 0.7rem 1.6rem;
+      font-family: var(--sans); font-size: 0.82rem; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      text-decoration: none; border-radius: 2px;
+      transition: all 0.2s;
+    }
+    .btn-dark { background: var(--black); color: var(--white); border: 1.5px solid var(--black); }
+    .btn-dark:hover { opacity: .75; }
+    .btn-ghost { background: transparent; color: var(--black); border: 1.5px solid var(--black); }
+    .btn-ghost:hover { background: var(--black); color: var(--white); }
+    .hero-right { display: flex; flex-direction: column; align-items: flex-end; opacity: 0; animation: fadeIn 0.8s 0.4s ease forwards; }
+    .hero-big-text {
+      font-family: var(--serif);
+      font-size: clamp(76px, 9.5vw, 140px);
+      font-weight: 900; font-style: italic;
+      line-height: 0.92; letter-spacing: -0.04em;
+      color: transparent;
+      -webkit-text-stroke: 1.5px var(--outline);
+      text-align: right; user-select: none;
+      font-variant-numeric: lining-nums;
+    }
+    .hero-big-cap { margin-top: 1.25rem; font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); text-align: right; max-width: 300px; line-height: 1.6; }
+    .kpi-strip {
+      max-width: 1160px; margin: 4rem auto 0; width: 100%;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px; background: var(--border); border: 1px solid var(--border);
+      opacity: 0; animation: fadeUp 0.6s 0.65s ease forwards;
+    }
+    .kpi { background: var(--white); padding: 1.35rem 1.5rem 1.4rem; }
+    .kpi-val { font-family: var(--serif); font-weight: 900; font-size: clamp(1.7rem, 2.5vw, 2.35rem); line-height: 1; letter-spacing: -0.02em; font-variant-numeric: lining-nums; color: var(--black); }
+    .kpi-val small { font-size: .5em; font-weight: 700; letter-spacing: 0; margin-left: .15em; }
+    .kpi-label { font-size: .8rem; color: var(--mid); margin-top: .6rem; line-height: 1.45; }
+
+    /* ─── SECTIONS ─── */
+    section { padding: 110px 6vw; }
+    .sec-off { background: var(--off); }
+    .container { max-width: 1160px; margin: 0 auto; }
+    .section-header { margin-bottom: 3rem; }
+    .eyebrow { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--viz-muted); margin-bottom: 0.75rem; }
+    h2.heading { font-family: var(--serif); font-size: clamp(32px, 3.5vw, 50px); font-weight: 900; line-height: 1.1; letter-spacing: -0.025em; color: var(--black); }
+    h2.heading em { font-style: italic; font-weight: 700; }
+    .lede { font-size: 1.1rem; font-weight: 300; color: var(--mid); line-height: 1.8; max-width: 760px; margin-top: 1.25rem; }
+    .lede strong { color: var(--black); font-weight: 500; }
+    .prose p { font-size: 1rem; font-weight: 300; color: var(--mid); line-height: 1.85; margin-bottom: 1.1rem; }
+    .prose p strong { color: var(--black); font-weight: 500; }
+    .subhead { font-family: var(--serif); font-size: 1.15rem; font-weight: 700; color: var(--black); margin: 2.4rem 0 1rem; display: flex; align-items: center; gap: .75rem; }
+    .subhead::before { content: ''; display: block; width: 18px; height: 2px; background: var(--black); }
+
+    /* ─── BRIEF ─── */
+    .brief-grid { display: grid; grid-template-columns: 0.95fr 1.5fr; gap: 5rem; align-items: start; }
+    .brief-sticky { position: sticky; top: 90px; }
+    .spec { border: 1px solid var(--border); background: var(--white); }
+    .spec-title { padding: 1rem 1.2rem; border-bottom: 1px solid var(--border); font-family: var(--serif); font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: .7rem; }
+    .spec-title::before { content: ''; width: 3px; height: 20px; background: var(--black); border-radius: 2px; }
+    .spec-row { display: grid; grid-template-columns: 92px 1fr; gap: 1rem; padding: .8rem 1.2rem; border-bottom: 1px solid var(--border); font-size: .86rem; line-height: 1.55; }
+    .spec-row:last-child { border-bottom: none; }
+    .spec-k { font-size: .66rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--viz-muted); padding-top: .2rem; }
+    .spec-v { color: var(--mid); }
+    .spec-v strong { color: var(--black); font-weight: 500; }
+    .spec-v a { color: var(--black); text-decoration: none; border-bottom: 1.5px solid var(--black); font-weight: 500; }
+    .spec-v a:hover { opacity: .55; }
+    .who { width: 100%; border-collapse: collapse; margin-top: .5rem; }
+    .who th, .who td { text-align: left; vertical-align: top; padding: .85rem .9rem .85rem 0; border-bottom: 1px solid var(--border); font-size: .9rem; line-height: 1.6; }
+    .who th { font-family: var(--serif); font-weight: 700; color: var(--black); width: 150px; font-size: .95rem; }
+    .who td { color: var(--mid); font-weight: 300; }
+    .hard-list { list-style: none; display: grid; gap: .9rem; }
+    .hard-list li { display: grid; grid-template-columns: 110px 1fr; gap: 1rem; padding: 1rem 1.1rem; border: 1px solid var(--border); background: var(--white); font-size: .9rem; color: var(--mid); line-height: 1.6; }
+    .hard-list .hl-k { font-family: var(--serif); font-weight: 700; color: var(--black); }
+    .hard-list strong { color: var(--black); font-weight: 500; }
+
+    /* ─── PIPELINE ─── */
+    .stage-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+    .stage { background: var(--white); padding: 1.5rem 1.3rem 1.6rem; transition: background .2s; }
+    .stage:hover { background: var(--off); }
+    .stage-num { font-family: var(--serif); font-style: italic; font-weight: 900; font-size: 2rem; color: var(--black); opacity: .15; line-height: 1; font-variant-numeric: lining-nums; }
+    .stage h3 { font-family: var(--serif); font-size: 1.08rem; font-weight: 700; color: var(--black); margin: .8rem 0 .3rem; }
+    .stage-sub { font-size: .8rem; color: var(--mid); margin-bottom: 1rem; line-height: 1.5; min-height: 2.4em; }
+    .tick-list { list-style: none; display: flex; flex-direction: column; gap: .5rem; }
+    .tick-list li { font-size: .82rem; color: var(--mid); line-height: 1.55; padding-left: .95rem; position: relative; }
+    .tick-list li::before { content: '–'; position: absolute; left: 0; color: var(--viz-ctx); }
+    .tick-list li strong { color: var(--black); font-weight: 500; }
+    .build-split { display: grid; grid-template-columns: 1.35fr 1fr; gap: 1.75rem; margin-top: 1.75rem; align-items: stretch; }
+    /* grid children may shrink below their content (wide code, charts) */
+    .brief-grid > *, .build-split > *, .model-grid > *, .score-grid > *, .finding > *, .contact-grid > *, .hero-inner > * { min-width: 0; }
+    .code-card { background: var(--surface); border: 1px solid var(--border); padding: 1.3rem 1.4rem; overflow-x: auto; }
+    .code-card pre { font: 0.78rem/1.75 var(--mono); color: var(--black); white-space: pre; }
+    .code-card .c { color: var(--viz-muted); }
+    .code-card .k { font-weight: 700; }
+    .card-label { font-size: .65rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--viz-muted); margin-bottom: .8rem; display: block; }
+    .rules { border: 1px solid var(--border); background: var(--white); padding: 1.3rem 1.4rem; }
+    .rules ul { list-style: none; display: grid; gap: .65rem; }
+    .rules li { font-size: .86rem; color: var(--mid); line-height: 1.55; padding-left: 1.6rem; position: relative; }
+    .rules li::before { content: '✓'; position: absolute; left: 0; top: 0; font-weight: 700; color: var(--black); }
+    .rules li strong { color: var(--black); font-weight: 500; }
+
+    /* ─── MODEL ─── */
+    .model-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 3.5rem; align-items: start; }
+    .steps { list-style: none; counter-reset: step; display: grid; gap: 1.4rem; }
+    .steps li { counter-increment: step; display: grid; grid-template-columns: 44px 1fr; gap: .9rem; }
+    .steps li::before { content: '0' counter(step); font-family: var(--serif); font-style: italic; font-weight: 900; font-size: 1.5rem; line-height: 1.1; color: var(--black); opacity: .2; font-variant-numeric: lining-nums; }
+    .steps h3 { font-family: var(--serif); font-size: 1.02rem; font-weight: 700; margin-bottom: .25rem; }
+    .steps p { font-size: .88rem; color: var(--mid); line-height: 1.7; font-weight: 300; }
+    .steps p strong { color: var(--black); font-weight: 500; }
+    .steps code, .prose code, .viz-note code { font-family: var(--mono); font-size: .84em; background: var(--tag-bg); padding: .05em .35em; border-radius: 3px; color: var(--black); }
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .data-table { width: 100%; border-collapse: collapse; font-size: .86rem; background: var(--white); border: 1px solid var(--border); }
+    .data-table caption { caption-side: bottom; text-align: left; font-size: .76rem; color: var(--viz-muted); padding-top: .7rem; line-height: 1.55; }
+    .data-table th { font-size: .66rem; letter-spacing: .1em; text-transform: uppercase; color: var(--viz-muted); font-weight: 600; text-align: left; padding: .75rem .9rem; border-bottom: 1px solid var(--border); background: var(--off); }
+    .data-table td { padding: .8rem .9rem; border-bottom: 1px solid var(--border); color: var(--mid); font-variant-numeric: tabular-nums; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table .num { text-align: right; }
+    .data-table tr.win td { color: var(--black); font-weight: 500; }
+    .data-table .medal { font-size: .64rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--black); color: var(--white); padding: .15rem .45rem; border-radius: 2px; margin-left: .45rem; vertical-align: 1px; }
+    .persona-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-top: 1.75rem; }
+    .persona { background: var(--white); padding: 1.3rem 1.4rem; }
+    .persona-k { font-size: .65rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--viz-muted); }
+    .persona h3 { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; margin: .35rem 0 .45rem; }
+    .persona p { font-size: .84rem; color: var(--mid); line-height: 1.65; }
+    .persona p strong { color: var(--black); font-weight: 500; }
+
+    /* ─── CHART FIGURES ─── */
+    .viz { margin: 0; border: 1px solid var(--border); background: var(--white); padding: 1.35rem 1.5rem 1.15rem; min-width: 0; }
+    .viz + .viz { margin-top: 1.5rem; }
+    .viz-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; margin-bottom: .85rem; }
+    .viz-title { font-family: var(--sans); font-weight: 600; font-size: .95rem; color: var(--black); line-height: 1.4; }
+    .viz-sub { font-size: .8rem; color: var(--viz-muted); margin-top: .2rem; line-height: 1.5; }
+    .viz-btn { font: 600 .66rem var(--sans); letter-spacing: .08em; text-transform: uppercase; border: 1.5px solid var(--border); background: transparent; color: var(--mid); padding: .38rem .75rem; border-radius: 999px; cursor: pointer; white-space: nowrap; transition: all .2s; flex-shrink: 0; }
+    .viz-btn:hover { border-color: var(--black); color: var(--black); }
+    .viz-btn[aria-pressed="true"] { background: var(--black); color: var(--white); border-color: var(--black); }
+    .viz-legend { display: flex; flex-wrap: wrap; gap: .35rem 1.25rem; font-size: .78rem; color: var(--mid); margin-bottom: .75rem; }
+    .viz-legend span { display: inline-flex; align-items: center; gap: .45rem; }
+    .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+    .sw-dot { border-radius: 50%; }
+    .sw-ink { background: var(--viz-ink); }
+    .sw-ctx { background: var(--viz-ctx); }
+    .viz-plot { position: relative; }
+    .viz-plot svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .viz-note { font-size: .76rem; color: var(--viz-muted); margin-top: .85rem; line-height: 1.6; }
+    .viz-note strong { color: var(--mid); font-weight: 600; }
+    .viz-table-wrap { display: none; margin-top: .9rem; max-height: 380px; overflow: auto; border: 1px solid var(--border); }
+    .viz.show-table .viz-table-wrap { display: block; }
+    .viz-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .viz-table th { position: sticky; top: 0; background: var(--off); text-align: left; font-weight: 600; color: var(--black); padding: .5rem .7rem; border-bottom: 1px solid var(--border); font-size: .72rem; }
+    .viz-table td { padding: .45rem .7rem; border-bottom: 1px solid var(--border); color: var(--mid); font-variant-numeric: tabular-nums; }
+    .viz-table .num { text-align: right; }
+    /* svg roles */
+    .vz-ink { fill: var(--viz-ink); }
+    .vz-ctx { fill: var(--viz-ctx); }
+    .vz-grid { stroke: var(--viz-grid); stroke-width: 1; shape-rendering: crispEdges; }
+    .vz-axis { stroke: var(--viz-axis); stroke-width: 1; shape-rendering: crispEdges; }
+    .vz-zero { stroke: var(--viz-axis); stroke-width: 1.5; }
+    .vz-ci-ink { stroke: var(--viz-ink); stroke-width: 2; stroke-linecap: round; }
+    .vz-ci-ctx { stroke: var(--viz-ctx); stroke-width: 2; stroke-linecap: round; }
+    .vz-ring { stroke: var(--white); stroke-width: 2; }
+    .vz-range { stroke: var(--viz-ctx); stroke-width: 2; stroke-linecap: round; }
+    .vz-mean { stroke: var(--viz-ink); stroke-width: 2; stroke-linecap: round; }
+    .vz-t { font-family: var(--sans); font-size: 12px; fill: var(--mid); }
+    .vz-t-strong { fill: var(--black); font-weight: 600; }
+    .vz-t-val { fill: var(--black); font-weight: 600; font-variant-numeric: tabular-nums; }
+    .vz-t-muted { fill: var(--viz-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .vz-t-head { fill: var(--viz-muted); font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    .vz-in-ink { fill: var(--white); font-weight: 600; font-size: 12px; font-family: var(--sans); }
+    .vz-in-ctx { fill: var(--black); font-weight: 600; font-size: 12px; font-family: var(--sans); }
+    .vz-mark { cursor: default; transition: opacity .15s; outline: none; }
+    .vz-mark:hover { opacity: .72; }
+    .vz-mark:focus-visible { opacity: .72; stroke: var(--black); stroke-width: 2; }
+    .vz-hit { fill: transparent; cursor: default; outline: none; }
+    .vz-hit:focus-visible { stroke: var(--black); stroke-width: 1.5; fill: transparent; }
+    .vz-tip { position: fixed; z-index: 300; pointer-events: none; background: var(--black); color: var(--white); padding: .55rem .75rem; border-radius: 4px; font-size: .76rem; line-height: 1.45; max-width: 260px; opacity: 0; transition: opacity .12s; box-shadow: 0 10px 28px rgba(0,0,0,.18); left: 0; top: 0; }
+    .vz-tip-v { font-weight: 600; font-size: .9rem; }
+    .vz-tip-l { opacity: .78; }
+
+    /* ─── SCOREBOARD ─── */
+    .score-grid { display: grid; grid-template-columns: 0.95fr 1.15fr; gap: 3.5rem; align-items: start; }
+    .points { list-style: none; display: grid; gap: 1.5rem; }
+    .points li { display: grid; grid-template-columns: 44px 1fr; gap: .9rem; }
+    .points .pn { font-family: var(--serif); font-style: italic; font-weight: 900; font-size: 1.5rem; opacity: .2; line-height: 1.1; font-variant-numeric: lining-nums; }
+    .points h3 { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; margin-bottom: .3rem; }
+    .points p { font-size: .9rem; color: var(--mid); line-height: 1.7; font-weight: 300; }
+    .points p strong { color: var(--black); font-weight: 500; }
+    .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+    .tiles.two { grid-template-columns: repeat(2, 1fr); }
+    .tiles.four { grid-template-columns: repeat(4, 1fr); }
+    .tile { background: var(--white); padding: 1.2rem 1.3rem 1.25rem; }
+    .tile-val { font-family: var(--serif); font-weight: 900; font-size: clamp(1.55rem, 2.2vw, 2rem); line-height: 1.05; color: var(--black); font-variant-numeric: lining-nums; letter-spacing: -0.01em; }
+    .tile-label { font-size: .8rem; color: var(--mid); margin-top: .5rem; line-height: 1.5; }
+    .callout { border-left: 3px solid var(--black); padding: 1.1rem 1.35rem; background: var(--surface); font-size: .95rem; color: var(--mid); line-height: 1.75; }
+    .callout strong { color: var(--black); font-weight: 600; }
+    .fine { font-size: .76rem; color: var(--viz-muted); line-height: 1.6; margin-top: 1rem; }
+    .fine code { font-family: var(--mono); font-size: .9em; }
+
+    /* ─── FINDINGS ─── */
+    .method-note { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 4rem; }
+    .method-note div { background: var(--white); padding: 1.15rem 1.3rem; font-size: .84rem; color: var(--mid); line-height: 1.65; }
+    .method-note h3 { font-family: var(--serif); font-size: .98rem; font-weight: 700; color: var(--black); margin-bottom: .35rem; }
+    .finding { display: grid; grid-template-columns: 0.82fr 1.18fr; gap: 3.5rem; align-items: start; padding: 3.75rem 0; border-top: 1px solid var(--border); }
+    .finding.first { border-top: none; padding-top: 0; }
+    .finding-num { font-family: var(--serif); font-style: italic; font-weight: 900; font-size: 2.6rem; color: var(--black); opacity: .15; line-height: 1; margin-bottom: .7rem; font-variant-numeric: lining-nums; }
+    .finding h3 { font-family: var(--serif); font-size: clamp(1.45rem, 2.1vw, 1.9rem); font-weight: 900; line-height: 1.15; letter-spacing: -0.015em; margin-bottom: 1.1rem; }
+    .finding h3 em { font-style: italic; font-weight: 700; }
+    .finding-text p { font-size: .95rem; font-weight: 300; color: var(--mid); line-height: 1.8; margin-bottom: .9rem; }
+    .finding-text p strong { color: var(--black); font-weight: 500; }
+    .so-what { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: .86rem; color: var(--mid); line-height: 1.7; }
+    .so-what b { display: block; font-size: .65rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--viz-muted); margin-bottom: .3rem; }
+    .map-fig { margin: 1.5rem 0 0; border: 1px solid var(--border); background: var(--white); padding: 1rem; }
+    .map-fig img { display: block; width: 100%; height: auto; }
+    [data-theme="dark"] .map-fig img { filter: brightness(.92); }
+    .map-fig figcaption { font-size: .76rem; color: var(--viz-muted); margin-top: .75rem; line-height: 1.6; }
+
+    /* ─── ACTIONS (tabs reuse the portfolio's pill style) ─── */
+    .tab-bar { display: flex; gap: 0.75rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
+    .tab-btn {
+      font-family: var(--sans); font-size: 0.8rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      padding: 0.6rem 1.5rem; border-radius: 999px;
+      border: 1.5px solid var(--border);
+      background: transparent; color: var(--mid);
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn[aria-selected="true"] { background: var(--black); color: var(--white); border-color: var(--black); }
+    .tab-btn:hover:not([aria-selected="true"]) { border-color: var(--black); color: var(--black); }
+    .tab-panel[hidden] { display: none; }
+    .panel-intro { font-size: .95rem; color: var(--mid); font-weight: 300; line-height: 1.75; max-width: 820px; margin-bottom: 1.75rem; }
+    .panel-intro strong { color: var(--black); font-weight: 500; }
+    .action-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+    .action { background: var(--white); border: 1px solid var(--border); display: flex; flex-direction: column; transition: transform .22s ease, box-shadow .22s ease; }
+    .action:hover { transform: translateY(-3px); box-shadow: 0 16px 44px rgba(0,0,0,0.07); }
+    .action-top { background: var(--off); padding: 1rem 1.4rem; display: flex; align-items: center; gap: 1rem; border-bottom: 1px solid var(--border); }
+    .action-num { font-family: var(--serif); font-style: italic; font-weight: 900; font-size: 1.6rem; color: var(--black); opacity: .18; line-height: 1; font-variant-numeric: lining-nums; }
+    .action-top h3 { font-family: var(--serif); font-size: 1.08rem; font-weight: 700; line-height: 1.3; }
+    .action-body { padding: 1.2rem 1.4rem 1.35rem; display: flex; flex-direction: column; gap: .85rem; flex: 1; }
+    .ar-k { display: block; font-size: .63rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--viz-muted); margin-bottom: .2rem; }
+    .ar p { font-size: .88rem; color: var(--mid); line-height: 1.65; }
+    .ar p strong { color: var(--black); font-weight: 500; }
+    .kpi-chip { display: inline-block; font-size: .72rem; font-weight: 500; padding: .25rem .65rem; border-radius: 3px; border: 1px solid var(--border); background: var(--off); color: var(--mid); }
+    .ar-track { margin-top: auto; }
+    .panel-note { margin-top: 1.5rem; font-size: .8rem; color: var(--viz-muted); line-height: 1.6; max-width: 900px; }
+
+    /* ─── STRATEGY ─── */
+    .roadmap { display: grid; grid-template-columns: 170px repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+    .rm-corner, .rm-head { background: var(--black); color: var(--white); padding: .95rem 1.2rem; }
+    .rm-head b { display: block; font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; }
+    .rm-head span { font-size: .74rem; opacity: .6; }
+    .rm-corner { font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; }
+    .rm-track { background: var(--off); padding: 1.3rem 1.2rem; }
+    .rm-track h3 { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; line-height: 1.3; }
+    .rm-track p { font-size: .76rem; color: var(--mid); margin-top: .35rem; line-height: 1.5; }
+    .rm-cell { background: var(--white); padding: 1.3rem 1.3rem 1.4rem; }
+    .rm-when { display: none; font-size: .63rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--viz-muted); margin-bottom: .3rem; }
+    .rm-cell h4 { font-family: var(--serif); font-size: 1rem; font-weight: 700; margin-bottom: .45rem; line-height: 1.3; }
+    .rm-cell p { font-size: .84rem; color: var(--mid); line-height: 1.65; }
+    .rm-cell p strong { color: var(--black); font-weight: 500; }
+    .measure-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.75rem; }
+    .measure { border: 1px solid var(--border); background: var(--white); padding: 1.2rem 1.4rem; }
+    .measure ul { list-style: none; display: grid; gap: .55rem; margin-top: .2rem; }
+    .measure li { font-size: .86rem; color: var(--mid); line-height: 1.55; display: flex; gap: .7rem; }
+    .measure li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--black); margin-top: .5em; flex-shrink: 0; }
+    .lessons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+    .lesson { background: var(--white); padding: 1.4rem 1.5rem; }
+    .lesson h3 { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; margin-bottom: .4rem; }
+    .lesson p { font-size: .88rem; color: var(--mid); line-height: 1.7; font-weight: 300; }
+    .lesson p strong { color: var(--black); font-weight: 500; }
+    .next-list { list-style: none; display: grid; grid-template-columns: repeat(2, 1fr); gap: .7rem 2.5rem; }
+    .next-list li { font-size: .88rem; color: var(--mid); line-height: 1.6; padding-left: 1rem; position: relative; }
+    .next-list li::before { content: '–'; position: absolute; left: 0; color: var(--viz-ctx); }
+    .next-list li strong { color: var(--black); font-weight: 500; }
+
+    /* ─── CONTACT (same as the portfolio) ─── */
+    #contact { background: var(--black); color: var(--white); }
+    [data-theme="dark"] #contact { background: #080808; }
+    .contact-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 6rem; align-items: start; }
+    #contact .eyebrow { color: rgba(255,255,255,0.45); }
+    #contact h2.heading { color: #fff; }
+    #contact h2.heading em { color: rgba(255,255,255,0.45); }
+    [data-theme="light"] #contact .eyebrow { color: rgba(255,255,255,0.45); }
+    .contact-intro { font-size: 1rem; font-weight: 300; color: rgba(255,255,255,0.6); line-height: 1.8; margin-bottom: 2.5rem; }
+    .contact-details { display: flex; flex-direction: column; gap: 1.2rem; }
+    .contact-row { display: flex; gap: 1.2rem; align-items: baseline; }
+    .contact-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.4); flex-shrink: 0; width: 80px; }
+    .contact-val { font-size: 0.92rem; color: rgba(255,255,255,0.75); }
+    .contact-val a { color: rgba(255,255,255,0.8); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.2); transition: color 0.2s, border-color 0.2s; }
+    .contact-val a:hover { color: #fff; border-color: rgba(255,255,255,0.6); }
+    .contact-right-big { font-family: var(--serif); font-size: clamp(36px, 4.5vw, 58px); font-weight: 900; line-height: 1.1; letter-spacing: -0.02em; color: #fff; margin-bottom: 1.5rem; }
+    .contact-right-big em { font-style: italic; color: rgba(255,255,255,0.4); }
+    .contact-btns { display: flex; gap: 1rem; flex-wrap: wrap; }
+    .btn-white { background: #fff; color: #0d0d0d; border: 1.5px solid #fff; }
+    .btn-white:hover { opacity: .85; }
+    .btn-white-ghost { background: transparent; color: #fff; border: 1.5px solid rgba(255,255,255,0.3); }
+    .btn-white-ghost:hover { border-color: #fff; }
+    #contact :focus-visible { outline-color: #fff; }
+
+    /* ─── FOOTER ─── */
+    footer { background: #080808; padding: 1.4rem 6vw; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem 1.5rem; }
+    footer span, footer a { font-size: 0.75rem; color: rgba(255,255,255,0.45); letter-spacing: 0.04em; text-decoration: none; }
+    footer a:hover { color: #fff; }
+    .disclaimer { background: #080808; padding: 0 6vw 1.6rem; font-size: .72rem; color: rgba(255,255,255,0.4); line-height: 1.6; }
+
+    /* ─── ANIMATIONS ─── */
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.visible { opacity: 1; transform: none; }
+    .no-io .reveal { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal, .hero-eyebrow, h1.hero-name, .hero-sub, .hero-actions, .hero-right, .kpi-strip { opacity: 1 !important; transform: none !important; animation: none !important; transition: none !important; }
+    }
+    @media print {
+      nav, .theme-toggle, .viz-btn { display: none !important; }
+      .reveal, .hero-eyebrow, h1.hero-name, .hero-sub, .hero-actions, .hero-right, .kpi-strip { opacity: 1 !important; transform: none !important; animation: none !important; }
+      section { padding: 40px 0; }
+    }
+
+    /* ─── RESPONSIVE ─── */
+    @media (max-width: 1180px) {
+      .nav-links { gap: 1.3rem; }
+      .nav-logo span { display: none; }
+      .build-split { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 1040px) {
+      .nav-links { display: none; }
+      .stage-grid { grid-template-columns: repeat(2, 1fr); }
+      .stage:last-child { grid-column: span 2; }
+      .stage-sub { min-height: 0; }
+    }
+    @media (max-width: 900px) {
+      section { padding: 84px 6vw; }
+      .hero-inner { grid-template-columns: 1fr; gap: 2rem; }
+      .hero-right { align-items: flex-start; }
+      .hero-big-text, .hero-big-cap { text-align: left; }
+      .hero-big-text { font-size: clamp(64px, 16vw, 110px); }
+      .kpi-strip { grid-template-columns: repeat(2, 1fr); margin-top: 2.5rem; }
+      .brief-grid, .model-grid, .score-grid, .finding, .contact-grid, .build-split { grid-template-columns: 1fr; gap: 2.5rem; }
+      .brief-sticky { position: static; }
+      .method-note, .persona-grid { grid-template-columns: 1fr; }
+      .roadmap { grid-template-columns: 1fr; }
+      .rm-corner, .rm-head { display: none; }
+      .rm-when { display: block; }
+      .rm-track { padding-top: 1.6rem; }
+      .tiles.four { grid-template-columns: repeat(2, 1fr); }
+      .finding { padding: 3rem 0; }
+    }
+    @media (max-width: 640px) {
+      .action-grid, .lessons, .measure-grid, .next-list { grid-template-columns: 1fr; }
+      .tiles, .tiles.two { grid-template-columns: 1fr 1fr; }
+      .stage-grid { grid-template-columns: 1fr; }
+      .stage:last-child { grid-column: auto; }
+      .hard-list li { grid-template-columns: 1fr; gap: .3rem; }
+      .who th { width: 110px; }
+      .tab-bar { gap: .5rem; }
+      .tab-btn { padding: .55rem 1rem; font-size: .72rem; }
+      .viz { padding: 1.1rem 1rem 1rem; }
+      .viz-head { flex-direction: column; gap: .6rem; }
+      .nav-cta { padding: .45rem .8rem; font-size: .72rem; }
+      .spec-row { grid-template-columns: 78px 1fr; }
+      .data-table th, .data-table td { padding: .7rem .55rem; }
+      .data-table th { font-size: .6rem; letter-spacing: .06em; }
+      .data-table .medal { display: none; }
+    }
+  
+
+    /* ─── OLIST PAGE ADDITIONS (same tokens, same components) ─── */
+    .who a { color: var(--black); text-decoration: none; border-bottom: 1px solid var(--outline); transition: border-color .2s; }
+    .who a:hover { border-color: var(--black); }
+    .who td strong { color: var(--black); font-weight: 500; }
+    .note-line { font-size: .92rem; color: var(--mid); line-height: 1.75; font-weight: 300; margin-top: 1.25rem; }
+    .note-line strong { color: var(--black); font-weight: 500; }
+
+    /* a longer title than the other case studies: same face, a step smaller */
+    h1.hero-name.long { font-size: clamp(40px, 4.7vw, 66px); text-wrap: balance; }
+    .viz-legend code { font-family: var(--mono); font-size: .92em; }
+
+    /* SQL disclosure: a code card that opens */
+    details.sql { border: 1px solid var(--border); background: var(--white); margin-top: 1.5rem; }
+    details.sql summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: .75rem; padding: .85rem 1.15rem; font-size: .74rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--black); }
+    details.sql summary::-webkit-details-marker { display: none; }
+    details.sql summary::before { content: ''; flex: none; width: 0; height: 0; border-left: 7px solid var(--black); border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent; transition: transform .2s; }
+    details.sql[open] summary::before { transform: rotate(90deg); }
+    details.sql summary:hover { background: var(--off); }
+    details.sql .code-card { border: none; border-top: 1px solid var(--border); }
+    details.sql .src { font-size: .76rem; color: var(--viz-muted); padding: .75rem 1.15rem; border-top: 1px solid var(--border); }
+    details.sql .src a { color: var(--black); font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--outline); }
+    @media (prefers-reduced-motion: reduce) { details.sql summary::before { transition: none; } }
+
+    .split { display: grid; grid-template-columns: 1fr 1.05fr; gap: 3rem; align-items: start; }
+    .split > * { min-width: 0; }
+    .block + .block { margin-top: 4.5rem; }
+
+    /* distortion → fix cards */
+    .fix-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-top: 1.75rem; }
+    .fix { background: var(--white); padding: 1.35rem 1.4rem 1.45rem; display: flex; flex-direction: column; gap: .85rem; }
+    .fix h4 { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; color: var(--black); }
+
+    /* star schema */
+    .schema { margin: 2rem 0 0; border: 1px solid var(--border); background: var(--white); padding: 1.4rem 1.5rem 1.2rem; }
+    .schema svg { width: 100%; height: auto; display: block; max-width: 980px; margin: 0 auto; }
+    .schema .fact rect { fill: var(--off); stroke: var(--black); stroke-width: 1.5; }
+    .schema .dim rect { fill: var(--white); stroke: var(--viz-axis); stroke-width: 1.2; }
+    .schema text { font-family: var(--sans); fill: var(--black); }
+    .schema .t { font-size: 16px; font-weight: 600; }
+    .schema .s { font-size: 13.5px; fill: var(--mid); }
+    .schema .k { font-size: 13px; fill: var(--viz-muted); }
+    .schema .key { font-size: 12px; fill: var(--viz-muted); }
+    .schema .ln { stroke: var(--viz-axis); stroke-width: 1.5; fill: none; }
+    .schema .ln.soft { stroke-dasharray: 4 4; }
+    .schema figcaption { font-size: .76rem; color: var(--viz-muted); margin-top: 1rem; line-height: 1.6; }
+    .schema figcaption code { font-family: var(--mono); font-size: .92em; }
+    .schema-list { display: none; }
+    .schema-list h3 { font-family: var(--serif); font-size: 1rem; font-weight: 700; margin-bottom: .5rem; }
+    .schema-list ul { list-style: none; border-top: 1px solid var(--border); }
+    .schema-list li { padding: .65rem 0; border-bottom: 1px solid var(--border); font-size: .86rem; color: var(--mid); line-height: 1.55; }
+    .schema-list b { display: block; color: var(--black); font-weight: 600; }
+    .rule-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.75rem; }
+    .rule { border: 1px solid var(--border); background: var(--white); padding: 1.35rem 1.45rem; }
+    .rule h4 { font-family: var(--serif); font-size: 1.05rem; font-weight: 700; margin-bottom: .45rem; }
+    .rule p { font-size: .88rem; color: var(--mid); line-height: 1.7; font-weight: 300; }
+    .rule code, .fix code, .p4 code, .prose code, .lede code, .tick-list code, .stage-sub code, .note-line code { font-family: var(--mono); font-size: .84em; background: var(--tag-bg); padding: .05em .35em; border-radius: 3px; color: var(--black); }
+
+    /* findings, Olist variant: header row, four-step story, evidence column */
+    .dx + .dx { margin-top: 5.5rem; }
+    .dx-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: .8rem 2rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--black); margin-bottom: 2.25rem; }
+    .dx-head .finding-num { margin-bottom: .45rem; }
+    .dx-head h3 { font-family: var(--serif); font-size: clamp(1.45rem, 2.2vw, 2rem); font-weight: 900; line-height: 1.15; letter-spacing: -0.015em; max-width: 30ch; }
+    .dx-head h3 em { font-style: italic; font-weight: 700; }
+    .chips { display: flex; gap: .35rem; flex-wrap: wrap; }
+    .chip-q { font: 600 .68rem var(--mono); padding: .25rem .55rem; border-radius: 3px; border: 1px solid var(--border); background: var(--off); color: var(--mid); }
+    .dx-body { display: grid; grid-template-columns: 0.92fr 1.08fr; gap: 3rem; align-items: start; }
+    .dx-body > * { min-width: 0; }
+    .p4 { list-style: none; display: grid; gap: 1.5rem; }
+    .p4 li { display: grid; grid-template-columns: 44px 1fr; gap: .9rem; }
+    .p4 .pn { font-family: var(--serif); font-style: italic; font-weight: 900; font-size: 1.5rem; opacity: .2; line-height: 1.1; font-variant-numeric: lining-nums; }
+    .p4 h4 { font-size: .66rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--viz-muted); margin-bottom: .3rem; }
+    .p4 p { font-size: .92rem; color: var(--mid); line-height: 1.78; font-weight: 300; }
+    .p4 p strong { color: var(--black); font-weight: 500; }
+    .ev { display: grid; gap: 1.5rem; }
+    .ev .viz + .viz { margin-top: 0; }
+    .more-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.5rem; }
+    .more-grid > * { min-width: 0; }
+    .more-grid .span { grid-column: 1 / -1; }
+    .more-grid .viz + .viz { margin-top: 0; }
+    .tiles.compact .tile { padding: 1rem 1.15rem 1.1rem; }
+    .tiles.compact .tile-val { font-size: clamp(1.35rem, 1.9vw, 1.7rem); }
+    .heat-legend { display: flex; align-items: center; gap: .6rem; font-size: .74rem; color: var(--viz-muted); margin-top: .7rem; flex-wrap: wrap; }
+    .heat-legend .ramp { width: 150px; height: 10px; border-radius: 3px; border: 1px solid var(--border); background: linear-gradient(to right, var(--surface), var(--viz-ink));
+      background: linear-gradient(to right, color-mix(in srgb, var(--viz-ink) 4%, var(--white)), var(--viz-ink)); }
+    .img-fig { margin: 0; border: 1px solid var(--border); background: var(--white); padding: 1.35rem 1.5rem 1.15rem; }
+    .img-fig img { display: block; width: 100%; height: auto; border-radius: 2px; }
+    [data-theme="dark"] .img-fig img { filter: brightness(.9); }
+    .img-fig figcaption { font-size: .76rem; color: var(--viz-muted); margin-top: .8rem; line-height: 1.6; }
+
+    /* roadmap */
+    .action-grid.three { grid-template-columns: repeat(3, 1fr); }
+    .ar-track .kpi-chip { line-height: 1.5; }
+
+    @media (max-width: 1040px) {
+      .action-grid.three { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 900px) {
+      .split, .dx-body, .rule-grid, .more-grid { grid-template-columns: 1fr; gap: 2rem; }
+      .fix-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      .schema svg { display: none; }
+      .schema-list { display: grid; gap: 1.25rem; }
+      .schema-svg-note { display: none; }
+    }
+    @media (max-width: 640px) {
+      .action-grid.three { grid-template-columns: 1fr; }
+      .dx-head h3 { font-size: 1.35rem; }
+      .img-fig, .schema { padding: 1.1rem 1rem 1rem; }
+    }
+
+    /* chart roles used only on this page */
+    .vz-line { fill: none; stroke: var(--viz-ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+    .vz-band { fill: var(--viz-ctx); opacity: .2; }
+    .vz-ref { stroke: var(--viz-muted); stroke-width: 1.25; stroke-dasharray: 4 3; }
+    .vz-cross { stroke: var(--viz-muted); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+    .vz-t-code { font-family: var(--mono); font-size: 11px; }
+    .vz-cell-focus { fill: none; stroke: var(--black); stroke-width: 2; pointer-events: none; }
+    .vz-rove { outline: none; }
+    .vz-rove:focus-visible .vz-hit-plot { stroke: var(--black); stroke-width: 1.5; }
+    .vz-hit-plot { fill: transparent; }
+
+    /* an odd last tile spans the row when tiles wrap to two columns */
+    @media (max-width: 640px) {
+      .tiles > .tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<!-- ═══ NAV ═══ -->
+<nav aria-label="Primary">
+  <a href="https://racheltran.vercel.app/" class="nav-logo">Rachel Tran<span>← Portfolio</span></a>
+  <ul class="nav-links">
+    <li><a href="#brief">Brief</a></li>
+    <li><a href="#build">Pipeline</a></li>
+    <li><a href="#warehouse">Warehouse</a></li>
+    <li><a href="#findings">Findings</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+  </ul>
+  <div class="nav-right">
+    <button class="theme-toggle" type="button" aria-label="Switch to dark mode" id="themeToggle">
+      <svg id="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg id="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </button>
+    <a href="https://github.com/racheltran184/SQL-Project-2" class="nav-cta" target="_blank" rel="noopener">Code ↗</a>
+  </div>
+</nav>
+
+<main id="main">
+<!-- ═══ HERO ═══ -->
+<section id="hero">
+  <div class="hero-inner">
+    <div class="hero-left">
+      <p class="hero-eyebrow"><span></span>Case study · SQL analytics &amp; strategy</p>
+      <h1 class="hero-name long">From marketplace data<br/><span class="italic">to commercial strategy.</span></h1>
+      <p class="hero-sub">Rapid top-line growth often hides fragile unit economics. I rebuilt <strong>99,441 orders</strong> from Olist, Brazil's largest marketplace aggregator, into a SQL Server warehouse, then took four executive questions from <strong>problem to pain point, solution and operations</strong>.</p>
+      <div class="hero-actions">
+        <a href="#findings" class="btn btn-dark">See the findings →</a>
+        <a href="#build" class="btn btn-ghost">How I built it</a>
+      </div>
+    </div>
+    <div class="hero-right" aria-hidden="true">
+      <div class="hero-big-text">96.9%</div>
+      <p class="hero-big-cap">Of 96,096 buyers never placed a second order</p>
+    </div>
+  </div>
+  <div class="kpi-strip" role="list">
+    <div class="kpi" role="listitem"><div class="kpi-val">99,441</div><div class="kpi-label">Orders, September 2016 to October 2018</div></div>
+    <div class="kpi" role="listitem"><div class="kpi-val">1.55M</div><div class="kpi-label">Rows audited across nine source tables</div></div>
+    <div class="kpi" role="listitem"><div class="kpi-val">7.5×</div><div class="kpi-label">GMV growth that hid a 2018 plateau</div></div>
+    <div class="kpi" role="listitem"><div class="kpi-val">67.6%</div><div class="kpi-label">Of item revenue from the top 10% of sellers</div></div>
+  </div>
+</section>
+
+<!-- ═══ 01 BRIEF ═══ -->
+<section id="brief" class="sec-off">
+  <div class="container">
+    <div class="brief-grid">
+      <aside class="brief-sticky reveal" aria-label="Project facts">
+        <div class="spec">
+          <div class="spec-title">Project facts</div>
+          <div class="spec-row"><span class="spec-k">Business</span><span class="spec-v"><strong>Olist</strong>, a B2B2C marketplace aggregator: small Brazilian merchants sell through unified storefronts and ship with third-party carriers</span></div>
+          <div class="spec-row"><span class="spec-k">Data</span><span class="spec-v">Brazilian E-Commerce Public Dataset by Olist (Kaggle): <strong>99,441 orders, 96,096 buyers, 3,095 sellers</strong>, September 2016 to October 2018. Money in Brazilian reais (R$)</span></div>
+          <div class="spec-row"><span class="spec-k">Method</span><span class="spec-v">ELT into SQL Server, a Kimball star schema, one governed semantic view, then <strong>14 diagnostic queries</strong></span></div>
+          <div class="spec-row"><span class="spec-k">Stack</span><span class="spec-v">SQL Server (T-SQL, CTEs, window functions) for the warehouse and queries; Python (pandas, Seaborn, Matplotlib) for audits, stress tests and charts</span></div>
+          <div class="spec-row"><span class="spec-k">Links</span><span class="spec-v"><a href="https://github.com/racheltran184/SQL-Project-2" target="_blank" rel="noopener">SQL scripts ↗</a> &nbsp; <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/analysis/recheck_numbers.py" target="_blank" rel="noopener">Re-check script ↗</a></span></div>
+        </div>
+      </aside>
+      <div class="reveal">
+        <div class="section-header">
+          <p class="eyebrow">01 · The mandate</p>
+          <h2 class="heading">Start from the<br/><em>executive mandate.</em></h2>
+        </div>
+        <div class="prose">
+          <p>Olist operates as a B2B2C marketplace aggregator: it enables thousands of small Brazilian merchants to sell through unified storefronts and ship via third-party carriers. Raw transaction logs record <strong>99,441 orders</strong> across nine tables, but leadership cannot steer a P&amp;L from raw logs when order grains, customer identities and logistics timestamps are fragmented.</p>
+          <p>So before writing a single analytical query, I organised the work around four questions that determine marketplace survival: the four lenses a CEO, CFO, COO and CCO would each put on this business.</p>
+        </div>
+        <h3 class="subhead">Four questions that decide survival</h3>
+        <table class="who">
+          <tr><th scope="row">Growth architecture</th><td><a href="#growth">Is top-line GMV compounding organically, or masking an acquisition-driven plateau?</a></td></tr>
+          <tr><th scope="row">Fulfilment &amp; unit economics</th><td><a href="#deliveries">Where do broken delivery promises and freight ratios destroy margin?</a></td></tr>
+          <tr><th scope="row">Retention &amp; LTV</th><td><a href="#customers">Why do 96.9% of buyers never return, and what operational threshold triggers churn?</a></td></tr>
+          <tr><th scope="row">Supply risk &amp; basket size</th><td><a href="#sellers">How exposed is GMV to top-seller churn, and why are baskets stuck at one item?</a></td></tr>
+        </table>
+        <p class="note-line">The order matters: <strong>growth and fulfilment are P&amp;L questions</strong> the board can read this quarter; retention and supply are risk questions that decide whether the business survives the next two years.</p>
+        <h3 class="subhead">What the work had to deliver</h3>
+        <ul class="hard-list">
+          <li><span class="hl-k">Mandate</span><span>Diagnose why a <strong>7.5× growth</strong> marketplace stalled in 2018, and design a plan for its <strong>96.9% buyer churn</strong>, its <strong>24% peak state-level late rate</strong> and its <strong>67.6% seller concentration</strong>.</span></li>
+          <li><span class="hl-k">Evidence</span><span>99,441 orders across 96,096 unique buyers and 3,095 sellers (September 2016 to October 2018). All monetary figures in Brazilian reais (R$).</span></li>
+          <li><span class="hl-k">Deliverable</span><span>A prioritised commercial roadmap, with every recommendation tied to <strong>a KPI the board can watch and a stop rule</strong>. Built on SQL Server and Python, but designed for the decision, not the query.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 02 PIPELINE ═══ -->
+<section id="build">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">02 · Data engineering</p>
+      <h2 class="heading">Five stages from<br/><em>raw ledger to decision.</em></h2>
+      <p class="lede">A modern ELT pipeline where <strong>every stage is a commercial safeguard</strong>, not a technical ritual. Data architecture is only as valuable as the executive decisions it governs.</p>
+    </div>
+    <div class="stage-grid reveal">
+      <div class="stage">
+        <div class="stage-num">01</div>
+        <h3>Extract</h3>
+        <p class="stage-sub">Raw ledger.</p>
+        <ul class="tick-list">
+          <li>9 operational exports into <code>olist_db</code></li>
+          <li><strong>1,550,922 rows</strong> audited for completeness</li>
+          <li>Strict typing: <code>DECIMAL(10,2)</code>, <code>DATETIME2</code></li>
+        </ul>
+      </div>
+      <div class="stage">
+        <div class="stage-num">02</div>
+        <h3>Validate &amp; transform</h3>
+        <p class="stage-sub">Staging.</p>
+        <ul class="tick-list">
+          <li>1M+ location rows collapsed to <strong>19,015 zip centroids</strong></li>
+          <li>814 repeated reviews removed</li>
+          <li>Impossible negative lead times quarantined</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <div class="stage-num">03</div>
+        <h3>Load</h3>
+        <p class="stage-sub">Data warehouse.</p>
+        <ul class="tick-list">
+          <li><strong>2 fact tables, 5 dimensions</strong> in schema <code>dwh</code></li>
+          <li>Order and item grains kept apart</li>
+          <li>Customers modelled as people, not checkouts</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <div class="stage-num">04</div>
+        <h3>Consume</h3>
+        <p class="stage-sub">Semantic view.</p>
+        <ul class="tick-list">
+          <li><code>vw_order_metrics</code>: <strong>one KPI truth</strong> for the board</li>
+          <li>Primary-category attribution</li>
+          <li>Standard NPS buckets</li>
+        </ul>
+      </div>
+      <div class="stage">
+        <div class="stage-num">05</div>
+        <h3>Analyse</h3>
+        <p class="stage-sub">Insights.</p>
+        <ul class="tick-list">
+          <li><strong>14 questions</strong> → 4 executive calls</li>
+          <li>Each call with a committed decision gate</li>
+          <li>8 roadmap actions, 3 deliberate deferrals</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="block split reveal" style="margin-top:4.5rem">
+      <div>
+        <h3 class="subhead" style="margin-top:0">Audit the raw transaction ledger</h3>
+        <div class="prose">
+          <p>A silent data error today becomes a wrong decision tomorrow, and a stakeholder only discovers it after the budget is committed. So before any insight is drawn, the ledger has to be trusted. I ingested all nine operational exports into <code>olist_db</code> with strict financial and temporal typing (<code>DECIMAL(10,2)</code> for currency, <code>DATETIME2</code> for logistics milestones), then ran an automated partition audit over <code>sys.partitions</code> to confirm no records were silently dropped.</p>
+          <p>The audit surfaces the first strategic trap: <strong><code>geolocation</code> is 64% of all rows</strong> because each zip code appears many times. Joining orders straight to raw locations would multiply GMV and order counts across every regional report, quietly inflating a state's performance and misdirecting carrier investment.</p>
+        </div>
+        <details class="sql">
+          <summary>Read the SQL: ingestion and completeness audit</summary>
+          <div class="code-card"><pre><code><span class="c">-- 1. Customers</span>
+BULK INSERT olist.customers
+FROM '/var/opt/mssql/data/olist_customers_dataset.csv'
+WITH (FORMAT = 'CSV', FIRSTROW = 2, FIELDTERMINATOR = ',', ROWTERMINATOR = '0x0a');
+
+<span class="c">-- … the same for the other eight files, then:</span>
+
+SELECT
+    t.name AS Table_Name,
+    s.name AS Schema_Name,
+    p.rows AS Row_Count,
+    CASE
+        WHEN p.rows = 0 THEN 'EMPTY - CHECK IMPORT'
+        ELSE 'OK'
+    END AS Status
+FROM sys.tables t
+INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+INNER JOIN sys.partitions p ON t.object_id = p.object_id
+WHERE s.name = 'olist'
+  AND p.index_id IN (0, 1)
+ORDER BY p.rows DESC;</code></pre></div>
+          <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/01_extract_raw_data.sql" target="_blank" rel="noopener">01_extract_raw_data.sql</a></p>
+        </details>
+      </div>
+      <figure class="viz" data-chart="tables" aria-labelledby="t-tables">
+        <div class="viz-head"><div><div class="viz-title" id="t-tables">Rows loaded and verified per source table</div><div class="viz-sub">All nine tables: 1,550,922 rows</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+        <div class="viz-legend"><span><i class="sw sw-ink"></i>The fan-out risk: <code>geolocation</code></span><span><i class="sw sw-ctx"></i>Other sources</span></div>
+        <div class="viz-plot"></div>
+        <div class="viz-table-wrap"></div>
+      </figure>
+    </div>
+
+    <div class="block reveal">
+      <h3 class="subhead">Eliminate reporting distortions</h3>
+      <p class="lede" style="margin-top:0">Noise upstream is strategy risk downstream: a double-counted state inflates a regional SLA story, an unmapped category hides a P&amp;L problem, and duplicate reviews move NPS enough to justify or kill a retention programme. Before modelling the warehouse, I resolved three distortions.</p>
+      <div class="fix-grid">
+        <div class="fix"><h4>Regional GMV fan-out</h4>
+          <div class="ar"><span class="ar-k">Raw distortion</span><p>1,000,163 location rows with multiple coordinates per zip code</p></div>
+          <div class="ar"><span class="ar-k">Governance fix</span><p>Collapsed to <strong>19,015 unique zip centroids</strong> with modal city and state attribution</p></div></div>
+        <div class="fix"><h4>Unattributed revenue</h4>
+          <div class="ar"><span class="ar-k">Raw distortion</span><p>73 Portuguese category names and 610 unmapped products</p></div>
+          <div class="ar"><span class="ar-k">Governance fix</span><p>Standardised to <strong>71 English categories</strong>, 2 retained Portuguese niches and an explicit "Unknown" bucket</p></div></div>
+        <div class="fix"><h4>Skewed NPS &amp; CSAT</h4>
+          <div class="ar"><span class="ar-k">Raw distortion</span><p>99,224 review rows containing 814 duplicate review IDs</p></div>
+          <div class="ar"><span class="ar-k">Governance fix</span><p>Deduplicated to <strong>98,410 unique reviews</strong>, keeping only the latest customer timestamp</p></div></div>
+      </div>
+      <p class="note-line">Corrupted carrier timestamps, where delivery dates appeared earlier than purchase dates, are also quarantined to <code>NULL</code>, so <strong>impossible negative lead times never flatter regional transit averages</strong>.</p>
+      <details class="sql">
+        <summary>Read the SQL: zip-code deduplication and category standardisation</summary>
+        <div class="code-card"><pre><code>WITH Geo_Frequency AS (
+    SELECT
+        geolocation_zip_code_prefix,
+        geolocation_city,
+        geolocation_state,
+        COUNT(*) as freq,
+        ROW_NUMBER() OVER (PARTITION BY geolocation_zip_code_prefix ORDER BY COUNT(*) DESC) as rn
+    FROM olist.geolocation
+    GROUP BY geolocation_zip_code_prefix, geolocation_city, geolocation_state
+),
+Geo_Centroids AS (
+    SELECT
+        geolocation_zip_code_prefix,
+        AVG(geolocation_lat) as avg_lat,
+        AVG(geolocation_lng) as avg_lng
+    FROM olist.geolocation
+    GROUP BY geolocation_zip_code_prefix
+)
+SELECT
+    c.geolocation_zip_code_prefix AS zip_code,
+    c.avg_lat,
+    c.avg_lng,
+    f.geolocation_city AS city,
+    f.geolocation_state AS state
+INTO dwh.Dim_Geolocation
+FROM Geo_Centroids c
+JOIN Geo_Frequency f ON c.geolocation_zip_code_prefix = f.geolocation_zip_code_prefix
+WHERE f.rn = 1;
+
+<span class="c">-- …</span>
+
+SELECT
+    p.product_id,
+    COALESCE(t.product_category_name_english, p.product_category_name, 'Unknown') AS category_name,
+    p.product_photos_qty,
+    p.product_weight_g,
+    p.product_length_cm,
+    p.product_height_cm,
+    p.product_width_cm
+INTO dwh.Dim_Products
+FROM olist.products p
+LEFT JOIN olist.product_category_name_translation t
+    ON p.product_category_name = t.product_category_name;</code></pre></div>
+        <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/02_transform_build_dwh.sql" target="_blank" rel="noopener">02_transform_build_dwh.sql</a></p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 03 WAREHOUSE ═══ -->
+<section id="warehouse" class="sec-off">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">03 · Warehouse &amp; semantic layer</p>
+      <h2 class="heading">Model the grain,<br/><em>then lock the KPIs.</em></h2>
+    </div>
+    <div class="rule-grid reveal" style="margin-top:0">
+      <div class="rule"><h4>Grain is a commercial choice</h4><p>Mixing multi-item line rows with order-level delivery metrics is the fastest way to double-count revenue and distort late-delivery rates, the two numbers the whole logistics case rests on. So I separated <code>Fact_Orders</code> (99,441 rows, item prices and freight pre-aggregated to the exact order grain) from <code>Fact_Order_Items</code> (112,650 rows, item-level detail for seller share, freight ratios and cross-sell attach).</p></div>
+      <div class="rule"><h4>Identify the real buyer for LTV</h4><p>Olist assigns a new <code>customer_id</code> to every checkout, so 99,441 transaction IDs belong to <strong>96,096 unique individuals</strong> (<code>customer_unique_id</code>). Modelling <code>Dim_Customer</code> around the person rather than the checkout token is what exposes the platform's true repeat-purchase economics. Get this wrong and the churn story disappears.</p></div>
+    </div>
+
+    <figure class="schema reveal">
+      <svg viewBox="0 0 880 470" role="img" aria-labelledby="schema-t schema-d">
+        <title id="schema-t">Star schema of the warehouse</title>
+        <desc id="schema-d">Fact_Orders, one row per order, joins Dim_Customer on customer_id, Dim_Reviews on order_id and Dim_Geolocation through the customer zip code. Fact_Order_Items, one row per item, joins Fact_Orders on order_id, Dim_Products on product_id and Dim_Sellers on seller_id.</desc>
+        <path class="ln" d="M240 66 H325"/>
+        <path class="ln soft" d="M240 174 H325"/>
+        <path class="ln" d="M555 66 H640"/>
+        <path class="ln" d="M440 200 V280"/>
+        <path class="ln" d="M555 308 H640"/>
+        <path class="ln" d="M555 414 H640"/>
+        <text class="key" x="282" y="58" text-anchor="middle">customer_id</text>
+        <text class="key" x="282" y="166" text-anchor="middle">zip code</text>
+        <text class="key" x="597" y="58" text-anchor="middle">order_id</text>
+        <text class="key" x="450" y="245">order_id</text>
+        <text class="key" x="597" y="300" text-anchor="middle">product_id</text>
+        <text class="key" x="597" y="406" text-anchor="middle">seller_id</text>
+        <g class="dim"><rect x="10" y="20" width="230" height="92" rx="4"/>
+          <text class="t" x="26" y="48">Dim_Customer</text>
+          <text class="s" x="26" y="72">99,441 ids, 96,096 people</text>
+          <text class="k" x="26" y="94">unique id, city, state, zip</text></g>
+        <g class="dim"><rect x="10" y="128" width="230" height="92" rx="4"/>
+          <text class="t" x="26" y="156">Dim_Geolocation</text>
+          <text class="s" x="26" y="180">19,015 zip codes</text>
+          <text class="k" x="26" y="202">average latitude and longitude</text></g>
+        <g class="fact"><rect x="325" y="20" width="230" height="180" rx="4"/>
+          <text class="t" x="341" y="50">Fact_Orders</text>
+          <text class="s" x="341" y="74">99,441 rows, one per order</text>
+          <text class="k" x="341" y="106">order value, freight, item count</text>
+          <text class="k" x="341" y="128">lead time, delivery gap</text>
+          <text class="k" x="341" y="150">late and cancelled flags</text>
+          <text class="k" x="341" y="172">customer city, state, zip</text></g>
+        <g class="fact"><rect x="325" y="280" width="230" height="150" rx="4"/>
+          <text class="t" x="341" y="310">Fact_Order_Items</text>
+          <text class="s" x="341" y="334">112,650 rows, one per item</text>
+          <text class="k" x="341" y="366">price, freight_value</text>
+          <text class="k" x="341" y="388">product_id, seller_id</text>
+          <text class="k" x="341" y="410">order_item_id</text></g>
+        <g class="dim"><rect x="640" y="20" width="230" height="92" rx="4"/>
+          <text class="t" x="656" y="48">Dim_Reviews</text>
+          <text class="s" x="656" y="72">98,410 reviews</text>
+          <text class="k" x="656" y="94">score, comment, dates</text></g>
+        <g class="dim"><rect x="640" y="262" width="230" height="92" rx="4"/>
+          <text class="t" x="656" y="290">Dim_Products</text>
+          <text class="s" x="656" y="314">32,951 products</text>
+          <text class="k" x="656" y="336">English category name</text></g>
+        <g class="dim"><rect x="640" y="368" width="230" height="92" rx="4"/>
+          <text class="t" x="656" y="396">Dim_Sellers</text>
+          <text class="s" x="656" y="420">3,095 sellers</text>
+          <text class="k" x="656" y="442">city, state, zip</text></g>
+      </svg>
+      <div class="schema-list">
+        <div><h3>Fact tables</h3><ul>
+          <li><b>Fact_Orders</b>99,441 rows, one per order: order value, freight, item count, lead time, late and cancelled flags.</li>
+          <li><b>Fact_Order_Items</b>112,650 rows, one per item: price and freight. Joins Fact_Orders on order_id.</li>
+        </ul></div>
+        <div><h3>Dimensions</h3><ul>
+          <li><b>Dim_Customer</b>Joins Fact_Orders on customer_id. 99,441 ids for 96,096 people.</li>
+          <li><b>Dim_Reviews</b>Joins Fact_Orders on order_id. 98,410 reviews.</li>
+          <li><b>Dim_Geolocation</b>Matches the customer's zip code (a lookup, not a key). 19,015 zip codes.</li>
+          <li><b>Dim_Products</b>Joins Fact_Order_Items on product_id. 32,951 products.</li>
+          <li><b>Dim_Sellers</b>Joins Fact_Order_Items on seller_id. 3,095 sellers.</li>
+        </ul></div>
+      </div>
+      <figcaption>Kimball star schema: <code>Fact_Orders</code> governs order-level financials and SLA adherence; <code>Fact_Order_Items</code> governs SKU, category, freight ratio and seller concentration metrics. <span class="schema-svg-note">The dashed line is a lookup on zip code, not a key.</span></figcaption>
+    </figure>
+    <details class="sql reveal">
+      <summary>Read the SQL: pre-aggregating financials to protect the Fact_Orders grain</summary>
+      <div class="code-card"><pre><code><span class="c">-- FIX: Calculate Financials first (Pre-Aggregation)
+-- We must aggregate items to the Order grain to join them to Fact_Orders</span>
+WITH Order_Financials AS (
+    SELECT
+        order_id,
+        SUM(price) AS total_order_value,
+        SUM(freight_value) AS total_freight,
+        COUNT(*) AS items_count
+    FROM olist.order_items
+    GROUP BY order_id
+)
+SELECT
+    o.order_id,
+    o.customer_id,
+    o.order_status,
+    o.order_purchase_timestamp,
+
+    <span class="c">-- Financials (Added)</span>
+    ISNULL(f.total_order_value, 0) AS total_order_value,
+    ISNULL(f.total_freight, 0) AS total_freight,
+    ISNULL(f.items_count, 0) AS items_count,
+
+    <span class="c">-- Logistics</span>
+    CASE
+        WHEN o.order_delivered_customer_date &lt; o.order_purchase_timestamp THEN NULL
+        ELSE DATEDIFF(DAY, o.order_purchase_timestamp, o.order_delivered_customer_date)
+    END AS actual_lead_time_days,
+
+    DATEDIFF(DAY, o.order_delivered_customer_date, o.order_estimated_delivery_date) AS delivery_gap_days,
+
+    <span class="c">-- Flags</span>
+    CASE WHEN o.order_status = 'delivered' THEN 1 ELSE 0 END AS is_delivered,
+    CASE WHEN o.order_status IN ('canceled', 'unavailable') THEN 1 ELSE 0 END AS is_canceled,
+
+    CASE
+        WHEN o.order_delivered_customer_date &gt; o.order_estimated_delivery_date THEN 1
+        ELSE 0
+    END AS is_late_delivery,
+
+    <span class="c">-- Dimensions</span>
+    c.customer_city,
+    c.customer_state,
+    c.customer_zip_code_prefix AS customer_zip
+
+INTO dwh.Fact_Orders
+FROM olist.orders o
+LEFT JOIN olist.customers c ON o.customer_id = c.customer_id
+LEFT JOIN Order_Financials f ON o.order_id = f.order_id;</code></pre></div>
+      <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/02_transform_build_dwh.sql" target="_blank" rel="noopener">02_transform_build_dwh.sql</a></p>
+    </details>
+
+    <div class="block reveal">
+      <h3 class="subhead">Lock KPI definitions into one semantic view</h3>
+      <p class="lede" style="margin-top:0">Different teams, different numbers, is the fastest way to lose a board. When Finance, Operations and Marketing each write their own joins, meetings turn into debates over whose numbers are right. I built <code>vw_order_metrics</code> as a governed layer at one row per order (<code>purchase_ts</code>, <code>gmv</code>, <code>delivery_gap_days</code>) that enforces two company-wide rules in code.</p>
+      <div class="rule-grid">
+        <div class="rule"><h4>Primary category attribution</h4><p>Multi-item orders are attributed to the category of their <strong>highest-value item</strong> (<code>ORDER BY price DESC</code>). That prevents double-counted order volume across category managers and gives each category owner a clean, honest P&amp;L.</p></div>
+        <div class="rule"><h4>Standardised NPS buckets</h4><p>Review scores of 1–2 stars are <code>Detractor</code>, 4–5 stars <code>Promoter</code> and 3 stars <code>Passive</code>. That ties logistics SLA breaches directly to customer sentiment, so the retention programme has a <strong>live read-out</strong>.</p></div>
+      </div>
+      <details class="sql">
+        <summary>Read the SQL: category attribution and NPS classification</summary>
+        <div class="code-card"><pre><code>    <span class="c">-- Product Category Logic:
+    -- An order might have multiple items. We pick the category of the most expensive item
+    -- to define the "Primary Category" of the order.</span>
+    (SELECT TOP 1 p.category_name
+     FROM dwh.Fact_Order_Items foi
+     JOIN dwh.Dim_Products p ON foi.product_id = p.product_id
+     WHERE foi.order_id = f.order_id
+     ORDER BY foi.price DESC) AS category_name,
+
+    <span class="c">-- …</span>
+
+    <span class="c">-- Quality Metrics</span>
+    r.review_score,
+    CASE
+        WHEN r.review_score &lt;= 2 THEN 'Detractor'
+        WHEN r.review_score &gt;= 4 THEN 'Promoter'
+        ELSE 'Passive'
+    END AS nps_bucket</code></pre></div>
+        <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql" target="_blank" rel="noopener">03_business_queries.sql</a>, part A</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 04 FINDINGS ═══ -->
+<section id="findings">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">04 · Four commercial diagnoses</p>
+      <h2 class="heading">From problem<br/><em>to operations.</em></h2>
+      <p class="lede">Each pillar runs the same discipline: <strong>identify the problem, find the pain point, show the solution, define the operations</strong>. Fourteen diagnostic queries across <code>dwh</code>, from parts B and C of <code>03_business_queries.sql</code>.</p>
+    </div>
+
+    <!-- F1 GROWTH -->
+    <article class="dx" id="growth" aria-labelledby="f1-h">
+      <div class="dx-head reveal">
+        <div><div class="finding-num">01</div><h3 id="f1-h">Growth architecture: 7.5× expansion, <em>then an acquisition plateau.</em></h3></div>
+        <div class="chips"><span class="chip-q">Q1</span><span class="chip-q">Q3</span></div>
+      </div>
+      <div class="dx-body">
+        <div class="reveal">
+          <ol class="p4">
+            <li><span class="pn">01</span><div><h4>Identify the problem</h4><p>On the surface, delivered GMV grew <strong>7.5×</strong> from <strong>R$112K</strong> in January 2017 to <strong>R$839K</strong> in August 2018. The monthly trajectory reveals a structural stall: after spiking to <strong>R$991K</strong> during Black Friday (November 2017), revenue flattened between <strong>R$0.83M and R$0.98M a month</strong> throughout 2018, bringing January–August 2018 growth down to <strong>2.4×</strong> year on year.</p></div></li>
+            <li><span class="pn">02</span><div><h4>Find the pain point</h4><p>Olist is running on a feast-or-famine acquisition treadmill. Revenue is anchored by three hero verticals: Health &amp; Beauty (<strong>R$1.23M</strong>), Watches &amp; Gifts (<strong>R$1.17M</strong>) and Bed, Bath &amp; Table (<strong>R$1.03M</strong>). Yet because <strong>96.9%</strong> of buyers never place a second order, past cohorts add almost no compounding baseline to 2018 GMV. When paid acquisition or seasonal traffic slows, the top line flattens immediately.</p></div></li>
+            <li><span class="pn">03</span><div><h4>Show the solution</h4><p>Shift capital from broad seasonal acquisition spikes to <strong>category-led lifecycle compounding</strong>: use natural replenishment cycles in Health &amp; Beauty (the #1 revenue vertical) as the primary repeat-purchase engine, and Bed, Bath &amp; Table as the anchor for multi-item home bundles, turning one-off holiday traffic into recurring quarterly demand.</p></div></li>
+            <li><span class="pn">04</span><div><h4>Define the operations</h4><p>Re-anchor executive reporting in <code>vw_order_metrics</code> to split monthly GMV into <em>first-order GMV</em> and <em>repeat-cohort GMV</em> by primary category. Ring-fence CRM replenishment triggers at Day 30 and Day 60 for delivered Health &amp; Beauty buyers, and require pre-committed holdout lift targets before approving Q4 promotional subsidies.</p></div></li>
+          </ol>
+          <details class="sql">
+            <summary>Read the SQL: Q3 monthly revenue trajectory</summary>
+            <div class="code-card"><pre><code><span class="c">-- Q3. Monthly Sales Trend (Seasonality)</span>
+SELECT
+    FORMAT(purchase_date, 'yyyy-MM') AS Sales_Month,
+    FORMAT(SUM(gmv), 'C', 'en-US') AS Revenue
+FROM dwh.vw_order_metrics
+WHERE order_status = 'delivered' AND purchase_date &gt;= '2017-01-01'
+GROUP BY FORMAT(purchase_date, 'yyyy-MM')
+ORDER BY Sales_Month DESC;</code></pre></div>
+            <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql" target="_blank" rel="noopener">03_business_queries.sql</a></p>
+          </details>
+        </div>
+        <div class="ev reveal">
+          <figure class="viz" data-chart="monthly" aria-labelledby="t-monthly">
+            <div class="viz-head"><div><div class="viz-title" id="t-monthly">Monthly delivered GMV, January 2017 to August 2018</div><div class="viz-sub">Reais per month (Q3); the shaded band is the 2018 range</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+            <div class="viz-plot"></div>
+            <div class="viz-table-wrap"></div>
+          </figure>
+          <div class="tiles compact">
+            <div class="tile"><div class="tile-val">7.5×</div><div class="tile-label">Jan 2017 to Aug 2018</div></div>
+            <div class="tile"><div class="tile-val">R$991K</div><div class="tile-label">Black Friday peak, Nov 2017</div></div>
+            <div class="tile"><div class="tile-val">2.4×</div><div class="tile-label">Jan–Aug 2018 against Jan–Aug 2017</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="more-grid reveal">
+        <figure class="viz span" data-chart="cats" aria-labelledby="t-cats">
+          <div class="viz-head"><div><div class="viz-title" id="t-cats">Top 10 categories by delivered revenue</div><div class="viz-sub">Reais (Q1); the two replenishment and bundling hooks are highlighted</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+          <div class="viz-legend"><span><i class="sw sw-ink"></i>Health &amp; beauty and bed, bath &amp; table</span><span><i class="sw sw-ctx"></i>Other top categories</span></div>
+          <div class="viz-plot"></div>
+          <div class="viz-table-wrap"></div>
+        </figure>
+      </div>
+    </article>
+
+    <!-- F2 DELIVERIES -->
+    <article class="dx" id="deliveries" aria-labelledby="f2-h">
+      <div class="dx-head reveal">
+        <div><div class="finding-num">02</div><h3 id="f2-h">Fulfilment &amp; unit economics: <em>carrier bottlenecks and the freight trap.</em></h3></div>
+        <div class="chips"><span class="chip-q">Q2</span><span class="chip-q">Q7</span><span class="chip-q">Q9</span><span class="chip-q">Q10</span><span class="chip-q">Q11</span></div>
+      </div>
+      <div class="dx-body">
+        <div class="reveal">
+          <ol class="p4">
+            <li><span class="pn">01</span><div><h4>Identify the problem</h4><p>Across Brazil, <strong>8.1%</strong> of delivered orders miss the promised delivery date, while <strong>2,963 orders (3.0%)</strong> never reach "delivered" at all: direct GMV and trust leakage. At the same time, shipping costs relative to item prices are choking conversion in low-ticket categories.</p></div></li>
+            <li><span class="pn">02</span><div><h4>Find the pain point</h4><p>Splitting order timestamps into three fulfilment stages proves that <strong>sellers are not the bottleneck</strong>: payment approval takes under a day and merchants hand parcels to carriers within <strong>2.5–3.3 days</strong>. The failure sits in <strong>carrier line-haul transit</strong> (<strong>20–26 days</strong> in the slowest states), pushing late rates to <strong>24.0%</strong> in Alagoas and <strong>15.2–19.6%</strong> across Maranhão, Piauí, Ceará and Sergipe, while São Paulo (<strong>2,391</strong> late orders) and Rio de Janeiro (<strong>1,671</strong>) generate the largest absolute volume. Worse, <strong>1,101 orders</strong> have been stuck at "shipped" for 60+ days, and in Electronics (median item price <strong>R$21.90</strong>) freight averages <strong>68.8%</strong> of the product price, costing more than the item itself on <strong>22%</strong> of orders.</p></div></li>
+            <li><span class="pn">03</span><div><h4>Show the solution</h4><p>A three-part <strong>logistics and freight re-architecture</strong>: (1) replace uniform national checkout ETAs with dynamic regional carrier buffers in the Northeast and Rio de Janeiro; (2) move carrier contracts to performance-tiered SLAs rather than penalising merchants who already pack in under 3.3 days; (3) introduce a minimum cart threshold for flat-rate shipping on small Electronics, so buyers bundle accessories rather than abandoning R$21.90 items over freight shock.</p></div></li>
+            <li><span class="pn">04</span><div><h4>Define the operations</h4><p>Implement an automated 30-day in-transit exception trigger in SQL to flag lost shipments, start carrier claims and auto-refund customers, catching the 1,101 stranded orders before they become chargebacks. Track Seller Pack SLA (under 3 days) separately from Carrier Transit SLA by state route, and reject premature warehouse CAPEX in the North: Roraima, Amapá and Amazonas totalled just <strong>254 orders</strong> over two years, far below break-even density.</p></div></li>
+          </ol>
+          <details class="sql">
+            <summary>Read the SQL: Q11 stage-by-stage bottleneck split</summary>
+            <div class="code-card"><pre><code><span class="c">-- Q11. Logistics Breakdown (Bottleneck Analysis)
+-- Insight: Does the delay happen at Approval, Packing (Seller), or Transit (Carrier)?</span>
+SELECT TOP 5
+    customer_state,
+    AVG(DATEDIFF(HOUR, purchase_ts, approved_ts))/24.0 as Days_To_Approve,
+    AVG(DATEDIFF(HOUR, approved_ts, carrier_ts))/24.0 as Days_To_Pack,
+    AVG(DATEDIFF(HOUR, carrier_ts, delivered_ts))/24.0 as Days_In_Transit
+FROM dwh.vw_order_metrics
+WHERE order_status = 'delivered'
+GROUP BY customer_state
+ORDER BY Days_In_Transit DESC;</code></pre></div>
+            <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql" target="_blank" rel="noopener">03_business_queries.sql</a></p>
+          </details>
+        </div>
+        <div class="ev reveal">
+          <figure class="viz" data-chart="late" aria-labelledby="t-late">
+            <div class="viz-head"><div><div class="viz-title" id="t-late">Late deliveries by customer state</div><div class="viz-sub">Share of delivered orders that arrived after the promised date (Q2)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+            <div class="viz-legend"><span><i class="sw sw-ink"></i>15% or more late (Northeast routes)</span><span><i class="sw sw-ctx"></i>Other high-late states</span></div>
+            <div class="viz-plot"></div>
+            <div class="viz-table-wrap"></div>
+            <p class="viz-note">Northeastern states run at 2–3× the national rate, while Rio de Janeiro (13.5% of 12,350 orders) is the largest high-volume bottleneck.</p>
+          </figure>
+          <div class="tiles compact two">
+            <div class="tile"><div class="tile-val">2,963</div><div class="tile-label">Orders that never reached "delivered" (3.0%)</div></div>
+            <div class="tile"><div class="tile-val">1,101</div><div class="tile-label">Orders stuck at "shipped" for 60+ days</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="more-grid reveal">
+        <figure class="viz" data-chart="stages" aria-labelledby="t-stages">
+          <div class="viz-head"><div><div class="viz-title" id="t-stages">Where the days go: the five slowest states</div><div class="viz-sub">Average days per stage for delivered orders (Q11)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+          <div class="viz-legend"><span><i class="sw sw-ctx"></i>Approval and seller packing</span><span><i class="sw sw-ink"></i>Carrier transit</span></div>
+          <div class="viz-plot"></div>
+          <div class="viz-table-wrap"></div>
+        </figure>
+        <figure class="viz" data-chart="freight" aria-labelledby="t-freight">
+          <div class="viz-head"><div><div class="viz-title" id="t-freight">The freight trap</div><div class="viz-sub">Average freight as a share of item price, top 10 categories (Q7)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+          <div class="viz-legend"><span><i class="sw sw-ink"></i>Low-ticket tech</span><span><i class="sw sw-ctx"></i>Other categories</span></div>
+          <div class="viz-plot"></div>
+          <div class="viz-table-wrap"></div>
+        </figure>
+      </div>
+    </article>
+
+    <!-- F3 CUSTOMERS -->
+    <article class="dx" id="customers" aria-labelledby="f3-h">
+      <div class="dx-head reveal">
+        <div><div class="finding-num">03</div><h3 id="f3-h">Retention &amp; channel fit: <em>the 96.9% churn wall and the 20-day cliff.</em></h3></div>
+        <div class="chips"><span class="chip-q">Q4</span><span class="chip-q">Q5</span><span class="chip-q">Q6</span><span class="chip-q">Q14</span></div>
+      </div>
+      <div class="dx-body">
+        <div class="reveal">
+          <ol class="p4">
+            <li><span class="pn">01</span><div><h4>Identify the problem</h4><p>Olist is functioning as a one-time customer rental channel, not a compounding marketplace: of <strong>96,096 unique buyers</strong>, <strong>93,099 (96.9%)</strong> purchased only once, leaving just <strong>2,997 repeat customers</strong> across two years. When LTV is capped at a single order, acquisition cost cannot be amortised: the growth in finding 01 is being bought, not compounded.</p></div></li>
+            <li><span class="pn">02</span><div><h4>Find the pain point</h4><p>Joining <code>Fact_Orders</code> to <code>Dim_Reviews</code> pinpoints where trust breaks: <strong>the 20-day transit cliff</strong>. Detractor rates (1–2 stars) stay contained at <strong>7.2%</strong> for 0–5 day deliveries (4.44★), <strong>8.4%</strong> for 6–10 days (4.35★) and <strong>10.5%</strong> for 11–20 days (4.21★), then jump 3.5× to <strong>37.0%</strong> (3.16★) beyond 20 days. Demand is skewed to weekdays: about <strong>175 orders a day</strong> on Mondays and Tuesdays against <strong>123 on Saturdays</strong>, with the busiest weekday block between 10:00 and 16:00. And <strong>19.9%</strong> of orders rely on <em>boleto</em> bank slips (against 76.9% on credit cards), adding multi-day clearing delays before a parcel even ships.</p></div></li>
+            <li><span class="pn">03</span><div><h4>Show the solution</h4><p>Replace blanket win-back discounting with <strong>experience-gated CRM and workday channel alignment</strong>: (1) gate second-order incentives to buyers whose first order arrived within 10 days (4.35–4.44★ promoters), avoiding subsidy waste on detractors burned by 20+ day transit; (2) move paid marketing from weekend slots into Monday–Friday daytime windows (10:00–16:00) while validating how much of that demand is B2B or office procurement; (3) offer instant-checkout incentives to move <em>boleto</em> users onto faster-clearing payment rails.</p></div></li>
+            <li><span class="pn">04</span><div><h4>Define the operations</h4><p>Automate cohort segmentation inside <code>vw_order_metrics</code> using <code>actual_lead_time_days &lt;= 10</code> and <code>nps_bucket = 'Promoter'</code>. Run a controlled 90-day A/B holdout on post-delivery repeat vouchers, add a lightweight CNPJ (business tax ID) toggle at checkout to size B2B demand before building dedicated features, and cap <em>boleto</em> inventory holds at 48 hours.</p></div></li>
+          </ol>
+          <details class="sql">
+            <summary>Read the SQL: Q5 retention across unique individuals</summary>
+            <div class="code-card"><pre><code><span class="c">-- Q5. Customer Retention Rate (Lifetime Value Check)</span>
+WITH CustomerFrequency AS (
+    SELECT customer_unique_id, COUNT(DISTINCT order_id) as Lifetime_Orders
+    FROM dwh.Dim_Customer c
+    JOIN dwh.Fact_Orders f ON c.customer_id = f.customer_id
+    GROUP BY customer_unique_id
+)
+SELECT
+    CASE WHEN Lifetime_Orders = 1 THEN 'One-Time Buyer' ELSE 'Repeat Buyer' END AS Buyer_Type,
+    COUNT(*) as Customer_Count,
+    FORMAT(COUNT(*) * 1.0 / (SELECT COUNT(*) FROM CustomerFrequency), 'P') as Share_of_Base
+FROM CustomerFrequency
+GROUP BY CASE WHEN Lifetime_Orders = 1 THEN 'One-Time Buyer' ELSE 'Repeat Buyer' END;</code></pre></div>
+            <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql" target="_blank" rel="noopener">03_business_queries.sql</a></p>
+          </details>
+        </div>
+        <div class="ev reveal">
+          <figure class="viz" data-chart="detr" aria-labelledby="t-detr">
+            <div class="viz-head"><div><div class="viz-title" id="t-detr">The 20-day cliff</div><div class="viz-sub">Share of reviews with 1 or 2 stars (detractors), by delivery time (Q4)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+            <div class="viz-plot"></div>
+            <div class="viz-table-wrap"></div>
+            <p class="viz-note">Satisfaction holds above 4.20★ up to day 20, then falls to 3.16★: retention marketing only works when it is paired with transit caps.</p>
+          </figure>
+          <div class="tiles compact">
+            <div class="tile"><div class="tile-val">96.9%</div><div class="tile-label">One-time buyers (93,099)</div></div>
+            <div class="tile"><div class="tile-val">3.1%</div><div class="tile-label">Repeat buyers (2,997)</div></div>
+            <div class="tile"><div class="tile-val">96,096</div><div class="tile-label">Unique people behind 99,441 checkouts</div></div>
+          </div>
+          <figure class="viz" data-chart="pay" aria-labelledby="t-pay">
+            <div class="viz-head"><div><div class="viz-title" id="t-pay">Payment mix</div><div class="viz-sub">Share of orders using each method (Q6)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+            <div class="viz-legend"><span><i class="sw sw-ink"></i>Slow-clearing boleto</span><span><i class="sw sw-ctx"></i>Other methods</span></div>
+            <div class="viz-plot"></div>
+            <div class="viz-table-wrap"></div>
+            <p class="viz-note">Shares add to more than 100% because some orders split payment across methods.</p>
+          </figure>
+        </div>
+      </div>
+      <div class="more-grid reveal">
+        <figure class="viz span" data-chart="heat" aria-labelledby="t-heat">
+          <div class="viz-head"><div><div class="viz-title" id="t-heat">When Brazil shops on Olist</div><div class="viz-sub">Orders by day of week and hour of purchase, September 2016 to October 2018 (Q14)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+          <div class="viz-plot"></div>
+          <div class="heat-legend"><span>Fewer orders</span><span class="ramp" aria-hidden="true"></span><span>More orders</span></div>
+          <div class="viz-table-wrap"></div>
+          <p class="viz-note">The darkest block runs Monday to Friday from 10:00 to 16:00, Saturday stays lighter all day and Sunday picks up in the evening: a guide for ad-spend scheduling and for testing B2B checkout demand.</p>
+        </figure>
+      </div>
+    </article>
+
+    <!-- F4 SELLERS -->
+    <article class="dx" id="sellers" aria-labelledby="f4-h">
+      <div class="dx-head reveal">
+        <div><div class="finding-num">04</div><h3 id="f4-h">Supply concentration &amp; baskets: <em>protect the top 10%, unlock attach.</em></h3></div>
+        <div class="chips"><span class="chip-q">Q8</span><span class="chip-q">Q12</span><span class="chip-q">Q13</span></div>
+      </div>
+      <div class="dx-body">
+        <div class="reveal">
+          <ol class="p4">
+            <li><span class="pn">01</span><div><h4>Identify the problem</h4><p>Olist faces severe supply-side concentration alongside under-monetised baskets: the top 10% of sellers (<strong>310 of 3,095</strong>) control <strong>67.6%</strong> of item revenue, the top 100 alone generate <strong>45.1%</strong>, and the bottom 50% contribute just <strong>3.2%</strong>. At the same time, <strong>96.7%</strong> of orders contain a single distinct product.</p></div></li>
+            <li><span class="pn">02</span><div><h4>Find the pain point</h4><p>This Pareto skew creates two vulnerabilities. First, if competing Brazilian marketplaces poach even 20–30 of the top 100 sellers, platform GMV drops immediately: the concentration <em>is</em> the risk. Second, seller volume against review scores exposes brand-damaging volume: one top-20 seller averages <strong>3.35★ across 982 orders</strong>, and five mid-to-large sellers (50+ orders) average under <strong>3.0★</strong> while contributing only <strong>0.6%</strong> of revenue. On the demand side, discovery fails to cross-sell: only <strong>3.3%</strong> of orders include two distinct products and <strong>0.8%</strong> span two categories, led by Bed, Bath &amp; Table with Furniture &amp; Décor at 70 orders.</p></div></li>
+            <li><span class="pn">03</span><div><h4>Show the solution</h4><p><strong>Tiered seller portfolio governance and cross-category merchandising</strong>: (1) lock in the top 100–310 anchor sellers with key-account management, faster payouts and volume-tiered commission rebates, while incubating decile 2–3 merchants (22.8% of revenue) to spread concentration risk; (2) put the five sub-3.0★ high-volume sellers on a 30-day quality remediation gate, risking just 0.6% of revenue to remove thousands of detractor experiences; (3) deploy "Frequently Bought Together" bundles pairing Bed, Bath &amp; Table with Furniture &amp; Décor and Housewares at checkout.</p></div></li>
+            <li><span class="pn">04</span><div><h4>Define the operations</h4><p>Run automated monthly <code>NTILE(10)</code> seller scorecards in the warehouse tracking revenue share, cancellation rate, pack SLA and rolling 90-day review average. Set a hard rule: any seller above 50 orders with a rating below 3.5★ is throttled in search impressions until SLA compliance is restored. Measure the cross-sell module by multi-SKU attach rate (from 3.3% toward 6%+) and incremental AOV against a checkout holdout group.</p></div></li>
+          </ol>
+          <details class="sql">
+            <summary>Read the SQL: Q8 seller deciles across 3,095 sellers</summary>
+            <div class="code-card"><pre><code><span class="c">-- Q8. Seller Concentration (Pareto Principle)</span>
+WITH SellerSales AS (
+    SELECT seller_id, SUM(price) as Revenue
+    FROM dwh.Fact_Order_Items
+    GROUP BY seller_id
+),
+RankedSellers AS (
+    SELECT Revenue, NTILE(10) OVER (ORDER BY Revenue DESC) as Decile
+    FROM SellerSales
+)
+SELECT
+    Decile,
+    FORMAT(SUM(Revenue), 'C', 'en-US') as Total_Revenue,
+    FORMAT(SUM(Revenue) * 1.0 / (SELECT SUM(Revenue) FROM SellerSales), 'P') as Share_of_Total
+FROM RankedSellers
+GROUP BY Decile
+ORDER BY Decile;</code></pre></div>
+            <p class="src">From <a href="https://github.com/racheltran184/SQL-Project-2/blob/main/03_business_queries.sql" target="_blank" rel="noopener">03_business_queries.sql</a></p>
+          </details>
+        </div>
+        <div class="ev reveal">
+          <figure class="viz" data-chart="deciles" aria-labelledby="t-dec">
+            <div class="viz-head"><div><div class="viz-title" id="t-dec">Revenue share by seller decile</div><div class="viz-sub">Sellers ranked by item revenue in ten equal groups (Q8)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+            <div class="viz-plot"></div>
+            <div class="viz-table-wrap"></div>
+            <p class="viz-note">Deciles 1–3 together hold 90.3% of item revenue, so top-seller retention and decile 2–3 incubation come first.</p>
+          </figure>
+          <div class="tiles compact">
+            <div class="tile"><div class="tile-val">45.1%</div><div class="tile-label">Revenue from the top 100 sellers</div></div>
+            <div class="tile"><div class="tile-val">3.2%</div><div class="tile-label">Revenue from the bottom half</div></div>
+            <div class="tile"><div class="tile-val">96.7%</div><div class="tile-label">Orders with a single product</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="more-grid reveal">
+        <figure class="viz" data-chart="sellers" aria-labelledby="t-sell">
+          <div class="viz-head"><div><div class="viz-title" id="t-sell">Volume against quality, top 20 sellers</div><div class="viz-sub">Orders and average review score per seller (Q13)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+          <div class="viz-legend"><span><i class="sw sw-ink sw-dot"></i>Outlier for SLA intervention</span><span><i class="sw sw-ctx sw-dot"></i>Other top-20 sellers</span></div>
+          <div class="viz-plot"></div>
+          <div class="viz-table-wrap"></div>
+          <p class="viz-note">19 of the top 20 sellers hold 3.8–4.4★, so scale doesn't require sacrificing quality; the 3.35★ seller with 982 orders is the one to fix.</p>
+        </figure>
+        <figure class="viz" data-chart="affinity" aria-labelledby="t-aff">
+          <div class="viz-head"><div><div class="viz-title" id="t-aff">Categories bought together</div><div class="viz-sub">Orders containing both categories, top five pairs (Q12, counted once per order)</div></div><button class="viz-btn" type="button" aria-pressed="false">Table</button></div>
+          <div class="viz-legend"><span><i class="sw sw-ink"></i>Home &amp; living pairs</span><span><i class="sw sw-ctx"></i>Other pairs</span></div>
+          <div class="viz-plot"></div>
+          <div class="viz-table-wrap"></div>
+          <p class="viz-note">Only 786 orders (0.8%) span two or more categories, and four of the five most common pairs are home categories: the blueprint for checkout cross-sell.</p>
+        </figure>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ═══ 05 ROADMAP ═══ -->
+<section id="roadmap" class="sec-off">
+  <div class="container">
+    <div class="section-header reveal">
+      <p class="eyebrow">05 · Executive roadmap &amp; capital allocation</p>
+      <h2 class="heading">Stop the leaks first,<br/><em>then compound.</em></h2>
+      <p class="lede"><strong>A strategy is a choice about order, not a list of good ideas.</strong> Horizon 1 fixes leakage that costs revenue today without new capital. Horizon 2 builds compounding assets (retention, seller incubation, cross-sell) that only pay off once the leaks are sealed. Running them the other way round would pour cash into a broken funnel.</p>
+    </div>
+    <div class="tab-bar reveal" role="tablist" aria-label="Roadmap horizons">
+      <button class="tab-btn" role="tab" id="tab-h1" aria-controls="panel-h1" aria-selected="true">Horizon 1 · Months 1–3</button>
+      <button class="tab-btn" role="tab" id="tab-h2" aria-controls="panel-h2" aria-selected="false" tabindex="-1">Horizon 2 · Months 4–12</button>
+      <button class="tab-btn" role="tab" id="tab-defer" aria-controls="panel-defer" aria-selected="false" tabindex="-1">Deliberately deferred</button>
+    </div>
+
+    <div class="tab-panel reveal" role="tabpanel" id="panel-h1" aria-labelledby="tab-h1" tabindex="0">
+      <p class="panel-intro"><strong>Stop leakage and protect core GMV.</strong> Four moves that need no new capital, each with a KPI gate.</p>
+      <div class="action-grid">
+        <div class="action"><div class="action-top"><span class="action-num">01</span><h3>Recalibrate Northeast and RJ carrier SLAs and checkout ETAs</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Plan</span><p>Stop penalising merchants (who pack in under 3.3 days) for 20–26 day carrier transit. Inject route-specific transit buffers into checkout ETAs in Alagoas (<strong>24.0% late</strong>), Maranhão (<strong>19.6%</strong>) and Rio de Janeiro (<strong>1,671 late orders</strong>), and renegotiate 3PL line-haul penalties to keep deliveries under the 20-day cliff.</p></div>
+          <div class="ar ar-track"><span class="ar-k">KPI gate</span><span class="kpi-chip">State late-delivery rate under 10% and the 20+ day detractor share</span></div>
+        </div></div>
+        <div class="action"><div class="action-top"><span class="action-num">02</span><h3>Automate 30-day carrier exception sweeps for stranded orders</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Plan</span><p>Resolve the <strong>1,101 paid orders</strong> stuck at "shipped" for 60+ days. An automated SQL exception trigger at day 30 in transit files carrier claims and proactively refunds or reships, ending silent brand erosion.</p></div>
+          <div class="ar ar-track"><span class="ar-k">KPI gate</span><span class="kpi-chip">Zero orders stuck in "shipped" beyond 30 days</span></div>
+        </div></div>
+        <div class="action"><div class="action-top"><span class="action-num">03</span><h3>Gate sub-3.0★ high-volume sellers on a 30-day SLA plan</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Plan</span><p>Isolate the <strong>five sellers with 50+ orders averaging under 3.0★</strong> (just 0.6% of revenue) plus the 3.35★ top-20 outlier (982 orders). Enforce quality coaching or search demotion to protect marketplace trust at minimal revenue risk.</p></div>
+          <div class="ar ar-track"><span class="ar-k">KPI gate</span><span class="kpi-chip">Defect and cancellation rate across audited sellers</span></div>
+        </div></div>
+        <div class="action"><div class="action-top"><span class="action-num">04</span><h3>Launch experience-gated second-order triggers</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Plan</span><p>Break the <strong>96.9% one-time buyer wall</strong> without burning margin on blanket discounts. Trigger 30-day replenishment incentives in Health &amp; Beauty only for first-time buyers whose order arrived in 10 days or fewer (4.35–4.44★ promoters).</p></div>
+          <div class="ar ar-track"><span class="ar-k">KPI gate</span><span class="kpi-chip">90-day repeat-purchase lift against a 50/50 holdout</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" role="tabpanel" id="panel-h2" aria-labelledby="tab-h2" tabindex="0" hidden>
+      <p class="panel-intro"><strong>Compound LTV, supply leverage and baskets</strong>, once the leaks are sealed.</p>
+      <div class="action-grid">
+        <div class="action"><div class="action-top"><span class="action-num">05</span><h3>Lock in the top 100–310 sellers and incubate deciles 2–3</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Plan</span><p>Protect the <strong>67.6% of revenue</strong> held by the top 10% of sellers with dedicated account management, faster working-capital payouts and volume-tiered commission rebates, while giving decile 2–3 sellers (<strong>22.8% of revenue</strong>) co-funded traffic tools to reduce concentration risk.</p></div>
+          <div class="ar ar-track"><span class="ar-k">KPI gate</span><span class="kpi-chip">Top-100 seller annualised retention and decile 2–3 revenue share</span></div>
+        </div></div>
+        <div class="action"><div class="action-top"><span class="action-num">06</span><h3>Deploy cross-category bundling in Home &amp; Living</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Plan</span><p>Move multi-product order share above <strong>3.3%</strong> by embedding "Frequently Bought Together" prompts pairing Bed, Bath &amp; Table with Furniture &amp; Décor and Housewares on product and cart pages.</p></div>
+          <div class="ar ar-track"><span class="ar-k">KPI gate</span><span class="kpi-chip">Multi-SKU attach rate and incremental AOV against control</span></div>
+        </div></div>
+        <div class="action"><div class="action-top"><span class="action-num">07</span><h3>Introduce basket-threshold shipping for low-ticket Electronics</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Plan</span><p>Fix the <strong>68.8% freight-to-price trap</strong> on R$21.90 median Electronics orders: replace single-item flat freight with a minimum cart threshold that unlocks subsidised shipping when buyers add accessories or a second item.</p></div>
+          <div class="ar ar-track"><span class="ar-k">KPI gate</span><span class="kpi-chip">Electronics checkout conversion and net freight margin per order</span></div>
+        </div></div>
+        <div class="action"><div class="action-top"><span class="action-num">08</span><h3>Align acquisition to workday peaks and test B2B demand</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Plan</span><p>Shift paid media toward <strong>Monday–Friday 10:00–16:00</strong> conversion windows, and add a zero-cost CNPJ (business tax ID) field at checkout to quantify B2B procurement before investing in corporate invoicing features.</p></div>
+          <div class="ar ar-track"><span class="ar-k">KPI gate</span><span class="kpi-chip">Weekday ROAS lift and verified B2B share of checkout GMV</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" role="tabpanel" id="panel-defer" aria-labelledby="tab-defer" tabindex="0" hidden>
+      <p class="panel-intro"><strong>A decision to act is also a decision about what not to act on.</strong> Three tempting paths, rejected on the evidence.</p>
+      <div class="action-grid three">
+        <div class="action"><div class="action-top"><span class="action-num">✕</span><h3>A Northern fulfilment hub</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Why not</span><p>Roraima, Amapá and Amazonas together produced just <strong>254 delivered orders</strong> in two years, too small to amortise warehouse CAPEX.</p></div>
+          <div class="ar ar-track"><span class="ar-k">Instead</span><span class="kpi-chip">Fix checkout ETAs and 3PL contracts</span></div>
+        </div></div>
+        <div class="action"><div class="action-top"><span class="action-num">✕</span><h3>A blanket price war with Shopee and Amazon</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Why not</span><p>It erodes margin without touching the <strong>96.9% churn wall</strong>, and Google and Instagram CPCs suggest it costs more than it recovers.</p></div>
+          <div class="ar ar-track"><span class="ar-k">Instead</span><span class="kpi-chip">Experience-gated retention (action 04)</span></div>
+        </div></div>
+        <div class="action"><div class="action-top"><span class="action-num">✕</span><h3>A dedicated B2B storefront</h3></div><div class="action-body">
+          <div class="ar"><span class="ar-k">Why not</span><p>The weekday-concentrated order pattern is <strong>suggestive, not proof</strong> of business demand.</p></div>
+          <div class="ar ar-track"><span class="ar-k">Instead</span><span class="kpi-chip">Validate with a zero-cost CNPJ toggle first</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <h3 class="subhead reveal" style="margin-top:4.5rem">How I take a marketplace from raw data to a decision</h3>
+    <div class="lessons reveal">
+      <div class="lesson"><h3>Diagnose the commercial problem, not the symptom</h3><p>Look past the headline (7.5× GMV growth) to the constraint underneath: a 2018 plateau, 96.9% churn, 67.6% supply concentration. <strong>The headline is what the board already knows; the constraint is what it needs to see.</strong></p></div>
+      <div class="lesson"><h3>Isolate the pain point and its true owner</h3><p>Decompose end-to-end workflows to find where the metric actually breaks (<strong>carrier transit, not seller pack time</strong>), so the recommendation names a specific team and lever, not an industry.</p></div>
+      <div class="lesson"><h3>Design for unit economics, not just GMV</h3><p>Gate retention spend to happy cohorts, solve freight traps with basket thresholds, and size demand before committing CAPEX: <strong>every recommendation is tested against the P&amp;L</strong>, not only volume.</p></div>
+      <div class="lesson"><h3>Build the operations that make the plan runnable</h3><p>Ship each recommendation with a committed decision gate, a KPI the board can watch and a holdout comparison, so leadership can <strong>act, iterate or stop on evidence</strong>, not on faith.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CONTACT ═══ -->
+<section id="contact">
+  <div class="container">
+    <div class="contact-grid">
+      <div class="reveal">
+        <div class="section-header">
+          <p class="eyebrow">Get in touch</p>
+          <h2 class="heading">Let's build something<br/><em>insightful.</em></h2>
+        </div>
+        <p class="contact-intro">Open to data analyst, BI analyst and analytics engineer roles in Sydney. Happy to walk through the warehouse, the SQL or the roadmap.</p>
+        <div class="contact-details">
+          <div class="contact-row"><span class="contact-label">Email</span><span class="contact-val"><a href="mailto:racheltran184@gmail.com">racheltran184@gmail.com</a></span></div>
+          <div class="contact-row"><span class="contact-label">GitHub</span><span class="contact-val"><a href="https://github.com/racheltran184" target="_blank" rel="noopener">github.com/racheltran184</a></span></div>
+          <div class="contact-row"><span class="contact-label">LinkedIn</span><span class="contact-val"><a href="https://www.linkedin.com/in/racheltran184/" target="_blank" rel="noopener">linkedin.com/in/racheltran184</a></span></div>
+          <div class="contact-row"><span class="contact-label">Portfolio</span><span class="contact-val"><a href="https://racheltran.vercel.app/">racheltran.vercel.app</a></span></div>
+          <div class="contact-row"><span class="contact-label">Next read</span><span class="contact-val"><a href="https://racheltran184.github.io/tiktok-shop-sea-case-challenge/">TikTok Shop case study</a></span></div>
+        </div>
+      </div>
+      <div class="reveal">
+        <p class="contact-right-big">Ready to<br/>turn data into<br/><em>impact?</em></p>
+        <div class="contact-btns">
+          <a href="https://racheltran.vercel.app/" class="btn btn-white">More projects →</a>
+          <a href="https://github.com/racheltran184/SQL-Project-2" target="_blank" rel="noopener" class="btn btn-white-ghost">View the code ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <span>© 2026 Rachel Tran</span>
+  <span>Data analyst · Sydney, Australia</span>
+  <a href="#hero">Back to top ↑</a>
+</footer>
+<p class="disclaimer">Built on the Brazilian E-Commerce Public Dataset by Olist, published on <a href="https://www.kaggle.com/olistbr/brazilian-ecommerce" target="_blank" rel="noopener" style="color:inherit">Kaggle</a>. Not affiliated with or endorsed by Olist. Money is in Brazilian reais (R$). The repository's <code>analysis/recheck_numbers.py</code> rebuilds each saved result from the raw data.</p>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════════
+   DATA — every plotted number, from the repository's Result/ CSVs and the
+   corrected figures quoted in the copy
+   ════════════════════════════════════════════════════════════════════════ */
+const DATA = {"tables":[{"t":"geolocation","v":1000163},{"t":"order_items","v":112650},{"t":"order_payments","v":103886},{"t":"orders","v":99441},{"t":"customers","v":99441},{"t":"order_reviews","v":99224},{"t":"products","v":32951},{"t":"sellers","v":3095},{"t":"product_category_name_translation","v":71}],"monthly":[{"m":"2017-01","v":112129.97},{"m":"2017-02","v":234443.4},{"m":"2017-03","v":360217.55},{"m":"2017-04","v":340930.28},{"m":"2017-05","v":490988.39},{"m":"2017-06","v":423511.63},{"m":"2017-07","v":483033.89},{"m":"2017-08","v":556989.89},{"m":"2017-09","v":609183.94},{"m":"2017-10","v":650233.18},{"m":"2017-11","v":990897.67},{"m":"2017-12","v":727089.49},{"m":"2018-01","v":926646.51},{"m":"2018-02","v":829869.83},{"m":"2018-03","v":955214.96},{"m":"2018-04","v":974625.29},{"m":"2018-05","v":977901.78},{"m":"2018-06","v":856791.49},{"m":"2018-07","v":869115.83},{"m":"2018-08","v":838613.83}],"cats":[{"c":"Health & beauty","v":1234955.36,"orders":8613,"hook":true},{"c":"Watches & gifts","v":1167403.17,"orders":5478,"hook":false},{"c":"Bed, bath & table","v":1030917.46,"orders":9184,"hook":true},{"c":"Sports & leisure","v":956703.08,"orders":7493,"hook":false},{"c":"Computers & accessories","v":891783.8,"orders":6512,"hook":false},{"c":"Furniture & décor","v":712714.71,"orders":6188,"hook":false},{"c":"Housewares","v":615953.63,"orders":5680,"hook":false},{"c":"Cool stuff","v":611933.85,"orders":3530,"hook":false},{"c":"Auto","v":580075.54,"orders":3793,"hook":false},{"c":"Toys","v":472178.04,"orders":3788,"hook":false}],"freight":[{"c":"Electronics","v":68.8,"hi":true},{"c":"Telephony","v":50.8,"hi":true},{"c":"Home appliances","v":39.4,"hi":false},{"c":"Consoles & games","v":37.5,"hi":false},{"c":"Housewares","v":37.5,"hi":false},{"c":"Construction tools","v":33.8,"hi":false},{"c":"Bags & accessories","v":32.9,"hi":false},{"c":"Garden tools","v":32.5,"hi":false},{"c":"Furniture & décor","v":32.5,"hi":false},{"c":"Auto","v":32.2,"hi":false}],"stages":[{"s":"RR","name":"Roraima","approve":0.38,"pack":3.33,"transit":25.62},{"s":"AP","name":"Amapá","approve":0.62,"pack":2.88,"transit":23.62},{"s":"AM","name":"Amazonas","approve":0.38,"pack":2.46,"transit":23.46},{"s":"AL","name":"Alagoas","approve":0.46,"pack":2.96,"transit":21.04},{"s":"PA","name":"Pará","approve":0.5,"pack":2.96,"transit":20.29}],"pay":[{"p":"Credit card","share":76.94,"value":12542084.19,"hi":false},{"p":"Boleto (bank slip)","share":19.9,"value":2869361.27,"hi":true},{"p":"Voucher","share":3.89,"value":379436.87,"hi":false},{"p":"Debit card","share":1.54,"value":217989.79,"hi":false}],"deciles":[{"d":1,"share":67.56,"rev":9183174.76},{"d":2,"share":15.16,"rev":2060449.46},{"d":3,"share":7.61,"rev":1033680.1},{"d":4,"share":4.05,"rev":550185.15},{"d":5,"share":2.42,"rev":328923.78},{"d":6,"share":1.49,"rev":202310.26},{"d":7,"share":0.86,"rev":116479.44},{"d":8,"share":0.49,"rev":66790.33},{"d":9,"share":0.27,"rev":36032.7},{"d":10,"share":0.1,"rev":13617.72}],"sellers":[{"rank":1,"orders":1854,"rating":3.91},{"rank":2,"orders":1806,"rating":3.81},{"rank":3,"orders":1706,"rating":4.07},{"rank":4,"orders":1404,"rating":3.99},{"rank":5,"orders":1314,"rating":4.07},{"rank":6,"orders":1287,"rating":4.05},{"rank":7,"orders":1160,"rating":4.23},{"rank":8,"orders":1146,"rating":3.95},{"rank":9,"orders":1132,"rating":4.12},{"rank":10,"orders":1080,"rating":4.11},{"rank":11,"orders":982,"rating":3.35},{"rank":12,"orders":943,"rating":4.0},{"rank":13,"orders":915,"rating":3.85},{"rank":14,"orders":740,"rating":4.21},{"rank":15,"orders":718,"rating":4.19},{"rank":16,"orders":712,"rating":3.86},{"rank":17,"orders":667,"rating":4.21},{"rank":18,"orders":657,"rating":4.16},{"rank":19,"orders":585,"rating":4.34},{"rank":20,"orders":565,"rating":4.01}],"heat":[[328,135,66,36,21,22,69,161,480,786,1038,1082,974,1030,1099,1082,1094,995,933,950,1029,1118,996,718],[306,159,80,28,29,24,71,223,522,865,968,1058,899,1047,1127,1047,1084,968,878,926,991,1029,966,695],[399,179,81,34,33,27,93,211,519,830,1045,1067,921,1032,1052,986,1041,968,855,849,906,966,880,616],[356,167,75,39,32,28,85,220,506,764,986,964,987,990,980,931,1079,912,786,827,843,841,860,553],[430,216,72,49,40,36,98,207,495,769,959,991,858,1004,964,981,979,820,724,785,739,731,702,514],[316,176,67,43,25,24,53,106,252,435,664,715,693,708,680,723,697,705,711,757,731,656,552,429],[267,141,69,45,27,27,35,106,205,349,531,722,680,726,686,720,712,797,897,901,970,892,878,609]],"days":["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],"late":[{"s":"AL","name":"Alagoas","v":24.0,"n":397},{"s":"MA","name":"Maranhão","v":19.6,"n":717},{"s":"PI","name":"Piauí","v":15.9,"n":476},{"s":"CE","name":"Ceará","v":15.4,"n":1279},{"s":"SE","name":"Sergipe","v":15.2,"n":335},{"s":"BA","name":"Bahia","v":14.1,"n":3256},{"s":"RJ","name":"Rio de Janeiro","v":13.5,"n":12350},{"s":"TO","name":"Tocantins","v":12.8,"n":274}],"lateRef":8.1,"detr":[{"b":"0–5 days","v":7.2,"n":16740,"stars":4.44},{"b":"6–10 days","v":8.4,"n":33240,"stars":4.35},{"b":"11–20 days","v":10.5,"n":33565,"stars":4.21},{"b":"20+ days","v":37.0,"n":13180,"stars":3.16}],"affinity":[{"a":"Bed, bath & table","b":"Furniture & décor","n":70,"home":true},{"a":"Bed, bath & table","b":"Home comfort","n":43,"home":true},{"a":"Furniture & décor","b":"Housewares","n":24,"home":true},{"a":"Bed, bath & table","b":"Housewares","n":20,"home":true},{"a":"Baby","b":"Cool stuff","n":20,"home":false}],"multiCat":786};
+
+/* ── Theme toggle (persists the choice) ── */
+(function () {
+  var btn = document.getElementById('themeToggle');
+  var root = document.documentElement;
+  var moon = document.getElementById('icon-moon');
+  var sun = document.getElementById('icon-sun');
+  function paint(v) {
+    root.setAttribute('data-theme', v);
+    var dark = v === 'dark';
+    moon.style.display = dark ? 'none' : '';
+    sun.style.display = dark ? '' : 'none';
+    btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+  paint(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+  btn.addEventListener('click', function () {
+    var v = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    paint(v);
+    try { localStorage.setItem('rt-theme', v); } catch (e) {}
+  });
+})();
+
+/* ── Scroll reveal ── */
+(function () {
+  if (!('IntersectionObserver' in window)) { document.documentElement.classList.add('no-io'); return; }
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); } });
+  }, { threshold: 0.06 });
+  document.querySelectorAll('.reveal').forEach(function (el) { obs.observe(el); });
+})();
+
+/* ── Active nav link ── */
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.nav-links a'));
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main section[id]'));
+  function onScroll() {
+    var cur = '';
+    sections.forEach(function (s) { if (window.scrollY >= s.offsetTop - 90) cur = s.id; });
+    links.forEach(function (a) { a.classList.toggle('active', a.getAttribute('href') === '#' + cur); });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+
+/* ── Roadmap tabs (arrow keys move between tabs) ── */
+(function () {
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab-btn'));
+  function select(tab, focus) {
+    tabs.forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.setAttribute('tabindex', on ? '0' : '-1');
+      var p = document.getElementById(t.getAttribute('aria-controls'));
+      if (p) { p.hidden = !on; if (on) p.classList.add('visible'); }
+    });
+    if (focus) tab.focus();
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { select(t, false); });
+    t.addEventListener('keydown', function (e) {
+      var k = e.key, j = null;
+      if (k === 'ArrowRight') j = (i + 1) % tabs.length;
+      if (k === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length;
+      if (k === 'Home') j = 0;
+      if (k === 'End') j = tabs.length - 1;
+      if (j !== null) { e.preventDefault(); select(tabs[j], true); }
+    });
+  });
+})();
+
+/* ════════════════════════════════════════════════════════════════════════
+   CHARTS — the same small SVG renderer as the other case studies. Colours
+   come from CSS roles (vz-ink / vz-ctx), so the theme toggle restyles every
+   chart without a redraw.
+   ════════════════════════════════════════════════════════════════════════ */
+(function () {
+  if (!DATA) return;
+  var NS = 'http://www.w3.org/2000/svg';
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  function int(v) { return Math.round(v).toLocaleString('en-AU'); }
+  function brl(v) { return 'R$' + int(v); }
+  function brlShort(v) { return v >= 1e6 ? 'R$' + (v / 1e6).toFixed(2) + 'M' : 'R$' + Math.round(v / 1e3) + 'K'; }
+  function brlTick(v) { return v === 0 ? 'R$0' : v >= 1e6 ? 'R$' + (v / 1e6) + 'M' : 'R$' + (v / 1e3) + 'K'; }
+  function pc(v, d) { return v.toFixed(d === undefined ? 1 : d) + '%'; }
+  function monthName(m) { var p = m.split('-'); return MONTHS[Number(p[1]) - 1] + ' ' + p[0]; }
+
+  function svgEl(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) if (attrs[k] !== undefined && attrs[k] !== null) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function text(parent, x, y, s, cls, anchor) {
+    var t = svgEl('text', { x: x, y: y, 'class': cls || 'vz-t', 'text-anchor': anchor || 'start' }, parent);
+    t.textContent = s;
+    return t;
+  }
+  function line(parent, x1, y1, x2, y2, cls) { return svgEl('line', { x1: x1, y1: y1, x2: x2, y2: y2, 'class': cls }, parent); }
+  function scale(d0, d1, r0, r1) { return function (v) { return r0 + (v - d0) / (d1 - d0) * (r1 - r0); }; }
+  function newSvg(host, w, h, label) {
+    host.replaceChildren();
+    return svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, width: w, height: h, role: 'img', 'aria-label': label }, host);
+  }
+  // widest rendered label, so the label column fits the real font
+  function widest(s, labels, cls) {
+    var m = 0;
+    labels.forEach(function (l) { var t = text(s, 0, -50, l, cls); m = Math.max(m, t.getComputedTextLength()); t.remove(); });
+    return Math.ceil(m);
+  }
+  // 4px rounded data-end, square at the baseline
+  function hbar(x0, x1, y, h) {
+    var w = Math.abs(x1 - x0), r = Math.min(4, h / 2, w);
+    if (w < 0.5) return 'M' + x0 + ',' + y + 'h0.5v' + h + 'h-0.5Z';
+    return 'M' + x0 + ',' + y + 'H' + (x1 - r) + 'Q' + x1 + ',' + y + ' ' + x1 + ',' + (y + r) + 'V' + (y + h - r) + 'Q' + x1 + ',' + (y + h) + ' ' + (x1 - r) + ',' + (y + h) + 'H' + x0 + 'Z';
+  }
+  function vbar(x, w, y0, y1) {
+    var h = Math.abs(y1 - y0), r = Math.min(4, w / 2, h);
+    if (h < 0.5) return 'M' + x + ',' + y0 + 'h' + w + 'v0.5h-' + w + 'Z';
+    return 'M' + x + ',' + y0 + 'V' + (y1 + r) + 'Q' + x + ',' + y1 + ' ' + (x + r) + ',' + y1 + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y1 + ' ' + (x + w) + ',' + (y1 + r) + 'V' + y0 + 'Z';
+  }
+
+  /* tooltip: value first, label second; text only via textContent */
+  var tip = document.createElement('div');
+  tip.className = 'vz-tip';
+  tip.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(tip);
+  function fill(lines) {
+    tip.replaceChildren();
+    lines.forEach(function (l, i) { var d = document.createElement('div'); d.className = i === 0 ? 'vz-tip-v' : 'vz-tip-l'; d.textContent = l; tip.appendChild(d); });
+    tip.style.opacity = '1';
+  }
+  function place(x, y) {
+    var r = tip.getBoundingClientRect(), pad = 12;
+    var nx = x + 14, ny = y - r.height - 12;
+    if (nx + r.width > window.innerWidth - pad) nx = x - r.width - 14;
+    if (ny < pad) ny = y + 18;
+    tip.style.transform = 'translate(' + Math.max(pad, nx) + 'px,' + ny + 'px)';
+  }
+  function hide() { tip.style.opacity = '0'; }
+  function bind(node, lines) {
+    node.setAttribute('tabindex', '0');
+    node.setAttribute('role', 'img');
+    node.setAttribute('aria-label', lines.join(', '));
+    node.addEventListener('pointerenter', function (e) { fill(lines); place(e.clientX, e.clientY); });
+    node.addEventListener('pointermove', function (e) { place(e.clientX, e.clientY); });
+    node.addEventListener('pointerleave', hide);
+    node.addEventListener('focus', function () { fill(lines); var b = node.getBoundingClientRect(); place(b.left + b.width / 2, b.top); });
+    node.addEventListener('blur', hide);
+  }
+  // one tab stop for a dense chart: arrow keys move through its points
+  function rover(node, label, count, show, clear, step2d, start) {
+    node.setAttribute('tabindex', '0');
+    node.setAttribute('role', 'img');
+    node.setAttribute('aria-label', label);
+    node.classList.add('vz-rove');
+    var cur = start === undefined ? count - 1 : start;
+    node.addEventListener('focus', function () { show(cur); });
+    node.addEventListener('blur', function () { clear(); hide(); });
+    node.addEventListener('keydown', function (e) {
+      var k = e.key, n = cur;
+      if (k === 'ArrowRight') n = cur + 1;
+      else if (k === 'ArrowLeft') n = cur - 1;
+      else if (k === 'ArrowDown' && step2d) n = cur + step2d;
+      else if (k === 'ArrowUp' && step2d) n = cur - step2d;
+      else if (k === 'Home') n = 0;
+      else if (k === 'End') n = count - 1;
+      else return;
+      e.preventDefault();
+      if (n < 0 || n >= count) return;
+      cur = n; show(cur);
+    });
+    return function (i) { cur = i; };
+  }
+  window.addEventListener('scroll', hide, { passive: true });
+
+  /* table twin for every chart */
+  function table(fig, head, rows, numericCols) {
+    var wrap = fig.querySelector('.viz-table-wrap');
+    if (!wrap || wrap.dataset.built) return;
+    var t = document.createElement('table'); t.className = 'viz-table';
+    var tr = document.createElement('tr');
+    head.forEach(function (h, i) { var th = document.createElement('th'); th.scope = 'col'; th.textContent = h; if (numericCols.indexOf(i) > -1) th.className = 'num'; tr.appendChild(th); });
+    var thead = document.createElement('thead'); thead.appendChild(tr); t.appendChild(thead);
+    var tb = document.createElement('tbody');
+    rows.forEach(function (r) {
+      var row = document.createElement('tr');
+      r.forEach(function (c, i) { var td = document.createElement('td'); td.textContent = c; if (numericCols.indexOf(i) > -1) td.className = 'num'; row.appendChild(td); });
+      tb.appendChild(row);
+    });
+    t.appendChild(tb); wrap.appendChild(t); wrap.dataset.built = '1';
+  }
+
+  /* generic ranked horizontal bars (one or two label lines) */
+  function hbars(host, o) {
+    var rows = o.rows, W = host.clientWidth;
+    var s = newSvg(host, W, 10, o.label);
+    var two = !!o.sub, nameCls = o.code ? 'vz-t vz-t-code' : 'vz-t';
+    var labW = Math.max(widest(s, rows.map(o.name), nameCls + ' vz-t-strong'), two ? widest(s, rows.map(o.sub), 'vz-t vz-t-muted') : 0) + 14;
+    var stacked = W < (o.stackBelow || 0) || labW > W * 0.46;
+    var L = stacked ? 0 : labW;
+    var valW = widest(s, rows.map(function (r) { return o.fmt(o.val(r)); }), 'vz-t vz-t-val');
+    var R = valW + 10, barH = o.barH || 12;
+    var rowH = stacked ? (two ? 34 : 20) + barH + 12 : (two ? 40 : 26), top = o.top || 4, axisH = 24;
+    var H = top + rows.length * rowH + axisH;
+    s.setAttribute('viewBox', '0 0 ' + W + ' ' + H); s.setAttribute('height', H);
+    var x = scale(0, o.max, L, W - R);
+    var ticks = W < 440 && o.ticksNarrow ? o.ticksNarrow : o.ticks;
+    ticks.forEach(function (t) {
+      if (!stacked) line(s, x(t), top, x(t), top + rows.length * rowH, 'vz-grid');
+      text(s, x(t), H - 5, o.tick(t), 'vz-t vz-t-muted', t === 0 ? 'start' : 'middle');
+    });
+    if (stacked) line(s, 0, H - axisH + 2, W - R, H - axisH + 2, 'vz-axis');
+    var bars = [];
+    rows.forEach(function (r, i) {
+      var y0 = top + i * rowH, v = o.val(r), ink = o.ink(r), cls = ink ? nameCls + ' vz-t-strong' : nameCls;
+      var y = stacked ? y0 + (two ? 34 : 20) : y0 + (rowH - barH) / 2;
+      if (stacked) {
+        text(s, 0, y0 + 13, o.name(r), cls);
+        if (two) text(s, 0, y0 + 27, o.sub(r), 'vz-t vz-t-muted');
+      } else if (two) {
+        text(s, L - 12, y0 + rowH / 2 - 3, o.name(r), cls, 'end');
+        text(s, L - 12, y0 + rowH / 2 + 11, o.sub(r), 'vz-t vz-t-muted', 'end');
+      } else {
+        text(s, L - 10, y + barH - 2, o.name(r), cls, 'end');
+      }
+      var g = svgEl('g', { 'class': 'vz-mark' }, s);
+      svgEl('rect', { x: L, y: y - 6, width: Math.max(1, x(v) - L) + valW + 8, height: barH + 12, 'class': 'vz-hit' }, g);
+      svgEl('path', { d: hbar(L, x(v), y, barH), 'class': ink ? 'vz-ink' : 'vz-ctx' }, g);
+      bind(g, o.tip(r));
+      text(s, x(v) + 6, y + barH - 2, o.fmt(v), ink ? 'vz-t vz-t-val' : 'vz-t vz-t-muted');
+      bars.push({ y: y, x1: x(v) });
+    });
+    if (!stacked) line(s, L, top, L, top + rows.length * rowH, 'vz-axis');
+    return { svg: s, x: x, top: top, bottom: top + rows.length * rowH, L: L, W: W, H: H, bars: bars, barH: barH, stacked: stacked };
+  }
+
+  /* ── 1. Rows per source table ── */
+  var SHORT_TABLE = { product_category_name_translation: 'category_translation' };
+  function tables(fig, host) {
+    var rows = DATA.tables, total = rows.reduce(function (a, r) { return a + r.v; }, 0);
+    var narrow = host.clientWidth < 600;
+    hbars(host, {
+      rows: rows, label: 'Rows loaded per source table: geolocation holds 1,000,163 of the 1,550,922 rows', code: true,
+      name: function (r) { return narrow ? (SHORT_TABLE[r.t] || r.t) : r.t; },
+      val: function (r) { return r.v; }, fmt: int, max: 1000163,
+      ink: function (r) { return r.t === 'geolocation'; },
+      ticks: [0, 250000, 500000, 750000, 1000000], ticksNarrow: [0, 500000, 1000000],
+      tick: function (t) { return t === 0 ? '0' : t >= 1e6 ? '1M' : (t / 1e3) + 'K'; },
+      tip: function (r) { return [int(r.v) + ' rows', r.t + ' · ' + pc(r.v / total * 100) + ' of all rows']; }
+    });
+    table(fig, ['Source table', 'Rows', 'Share of all rows'], rows.map(function (r) { return [r.t, int(r.v), pc(r.v / total * 100)]; }).concat([['All nine tables', int(total), '100.0%']]), [1, 2]);
+  }
+
+  /* ── 2. Monthly delivered GMV (line with crosshair) ── */
+  function monthly(fig, host) {
+    var rows = DATA.monthly, W = host.clientWidth, narrow = W < 520, n = rows.length;
+    var L = 52, R = 10, top = 24, plotH = narrow ? 190 : 220, axisH = 30;
+    var H = top + plotH + axisH;
+    var s = newSvg(host, W, H, 'Monthly delivered GMV rose from R$112K in January 2017 to a R$991K peak in November 2017, then held between R$0.83M and R$0.98M a month through August 2018');
+    var step = (W - L - R) / (n - 1);
+    function x(i) { return L + step * i; }
+    var y = scale(0, 1000000, top + plotH, top);
+    [0, 250000, 500000, 750000, 1000000].forEach(function (t) {
+      line(s, L, y(t), W - R, y(t), t === 0 ? 'vz-axis' : 'vz-grid');
+      text(s, L - 8, y(t) + 4, brlTick(t), 'vz-t vz-t-muted', 'end');
+    });
+    // 2018 plateau band
+    var y18 = rows.slice(12), lo = Math.min.apply(null, y18.map(function (r) { return r.v; })), hi = Math.max.apply(null, y18.map(function (r) { return r.v; }));
+    svgEl('rect', { x: x(12) - step / 2, y: y(hi), width: W - R - x(12) + step / 2, height: y(lo) - y(hi), 'class': 'vz-band' }, s);
+    var bx = x(12) - step / 2 + 2, bl = text(s, bx, y(lo) + 16, '2018 range: R$0.83M–0.98M', 'vz-t vz-t-muted');
+    if (bx + bl.getComputedTextLength() > W - R) { bl.textContent = '2018 range'; text(s, bx, y(lo) + 30, 'R$0.83M–0.98M', 'vz-t vz-t-muted'); }
+    var d = rows.map(function (r, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(r.v).toFixed(1); }).join('');
+    svgEl('path', { d: d, 'class': 'vz-line' }, s);
+    // selective labels: start and peak
+    svgEl('circle', { cx: x(0), cy: y(rows[0].v), r: 4, 'class': 'vz-ink vz-ring' }, s);
+    text(s, x(0) + 6, y(rows[0].v) + 18, brlShort(rows[0].v), 'vz-t vz-t-val');
+    var pk = 10;
+    svgEl('circle', { cx: x(pk), cy: y(rows[pk].v), r: 4, 'class': 'vz-ink vz-ring' }, s);
+    text(s, x(pk), y(rows[pk].v) - 10, brlShort(rows[pk].v) + (narrow ? '' : ' Black Friday'), 'vz-t vz-t-val', 'middle');
+    // x axis: month marks
+    (narrow ? [0, 6, 12, 18] : [0, 3, 6, 9, 12, 15, 18]).forEach(function (i) {
+      var m = rows[i].m.split('-'), lab = m[1] === '01' ? 'Jan ' + m[0] : MONTHS[Number(m[1]) - 1].slice(0, 3);
+      line(s, x(i), top + plotH, x(i), top + plotH + 4, 'vz-axis');
+      text(s, x(i), top + plotH + 18, lab, 'vz-t vz-t-muted', i === 0 ? 'start' : 'middle');
+    });
+    // crosshair
+    var g = svgEl('g', {}, s);
+    var plot = svgEl('rect', { x: L, y: top, width: W - L - R, height: plotH, 'class': 'vz-hit-plot' }, g);
+    var cross = line(g, 0, top, 0, top + plotH, 'vz-cross');
+    var dot = svgEl('circle', { cx: 0, cy: 0, r: 5, 'class': 'vz-ink vz-ring' }, g);
+    cross.style.display = dot.style.display = 'none';
+    function show(i, cx, cy) {
+      var r = rows[i];
+      cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
+      dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(r.v));
+      cross.style.display = dot.style.display = '';
+      fill([brl(r.v), monthName(r.m) + (i === pk ? ' · Black Friday peak' : '')]);
+      if (cx === undefined) { var b = s.getBoundingClientRect(); cx = b.left + x(i); cy = b.top + y(r.v); }
+      place(cx, cy);
+    }
+    function clear() { cross.style.display = dot.style.display = 'none'; }
+    var setCur = rover(g, 'Monthly delivered GMV, ' + brlShort(rows[0].v) + ' in January 2017 to ' + brlShort(rows[n - 1].v) + ' in August 2018. Use the arrow keys to read each month.', n, function (i) { show(i); }, clear);
+    g.addEventListener('pointermove', function (e) {
+      var b = s.getBoundingClientRect();
+      var i = Math.max(0, Math.min(n - 1, Math.round((e.clientX - b.left - L) / step)));
+      setCur(i); show(i, e.clientX, e.clientY);
+    });
+    g.addEventListener('pointerleave', function () { clear(); hide(); });
+    table(fig, ['Month', 'Delivered GMV (R$)'], rows.map(function (r) { return [monthName(r.m), brl(r.v)]; }), [1]);
+  }
+
+  /* ── 3. Top categories by delivered revenue ── */
+  function cats(fig, host) {
+    var rows = DATA.cats;
+    hbars(host, {
+      rows: rows, label: 'Top 10 categories by delivered revenue: health & beauty leads with R$1.23M',
+      name: function (r) { return r.c; }, val: function (r) { return r.v; }, fmt: brlShort, max: 1250000,
+      ink: function (r) { return r.hook; }, stackBelow: 420,
+      ticks: [0, 250000, 500000, 750000, 1000000, 1250000], ticksNarrow: [0, 500000, 1000000],
+      tick: brlTick,
+      tip: function (r) { return [brl(r.v), r.c + ' · ' + int(r.orders) + ' delivered orders']; }
+    });
+    table(fig, ['Rank', 'Category', 'Delivered revenue (R$)', 'Delivered orders'], rows.map(function (r, i) { return [String(i + 1), r.c, brl(r.v), int(r.orders)]; }), [0, 2, 3]);
+  }
+
+  /* ── 4. Late deliveries by state, against the national rate ── */
+  function late(fig, host) {
+    var rows = DATA.late, ref = DATA.lateRef;
+    var c = hbars(host, {
+      rows: rows, label: 'Late-delivery rate by customer state against the national rate of 8.1%: Alagoas is highest at 24.0%',
+      name: function (r) { return r.name; }, sub: function (r) { return int(r.n) + ' orders'; },
+      val: function (r) { return r.v; }, fmt: function (v) { return pc(v); }, max: 25, top: 22, barH: 14,
+      ink: function (r) { return r.v >= 15; }, stackBelow: 380,
+      ticks: [0, 5, 10, 15, 20, 25], ticksNarrow: [0, 10, 20],
+      tick: function (t) { return t + '%'; },
+      tip: function (r) { return [pc(r.v) + ' late', r.name + ' (' + r.s + ') · ' + int(r.n) + ' delivered orders', 'About ' + int(r.v * r.n / 100) + ' late orders']; }
+    });
+    var xr = c.x(ref);
+    if (c.stacked) c.bars.forEach(function (b) { line(c.svg, xr, b.y - 4, xr, b.y + c.barH + 4, 'vz-ref'); });
+    else line(c.svg, xr, c.top - 6, xr, c.bottom, 'vz-ref');
+    text(c.svg, xr, c.top - 10, 'National ' + pc(ref), 'vz-t vz-t-muted', xr < 40 ? 'start' : 'middle');
+    table(fig, ['State', 'Delivered orders', 'Late rate'], rows.map(function (r) { return [r.name + ' (' + r.s + ')', int(r.n), pc(r.v)]; }).concat([['National', '', pc(ref)]]), [1, 2]);
+  }
+
+  /* ── 5. Days per fulfilment stage (stacked) ── */
+  function stages(fig, host) {
+    var rows = DATA.stages, W = host.clientWidth;
+    var s = newSvg(host, W, 10, 'Average days per fulfilment stage in the five slowest states: carrier transit takes 20 to 26 days, approval and seller packing under 4');
+    var L = widest(s, rows.map(function (r) { return r.name; }), 'vz-t vz-t-strong') + 14;
+    var R = widest(s, ['29.3 days'], 'vz-t vz-t-val') + 10;
+    var barH = 18, rowH = 34, top = 4, axisH = 24, gap = 2, H = top + rows.length * rowH + axisH;
+    s.setAttribute('viewBox', '0 0 ' + W + ' ' + H); s.setAttribute('height', H);
+    var x = scale(0, 30, L, W - R);
+    (W < 440 ? [0, 10, 20, 30] : [0, 5, 10, 15, 20, 25, 30]).forEach(function (t) {
+      line(s, x(t), top, x(t), top + rows.length * rowH, 'vz-grid');
+      text(s, x(t), H - 5, String(t), 'vz-t vz-t-muted', t === 0 ? 'start' : 'middle');
+    });
+    rows.forEach(function (r, i) {
+      var y = top + i * rowH + (rowH - barH) / 2, pre = r.approve + r.pack, tot = pre + r.transit;
+      text(s, L - 10, y + barH / 2 + 4, r.name, 'vz-t vz-t-strong', 'end');
+      var g1 = svgEl('g', { 'class': 'vz-mark' }, s);
+      svgEl('rect', { x: L, y: y - 4, width: x(pre) - L, height: barH + 8, 'class': 'vz-hit' }, g1);
+      svgEl('rect', { x: L, y: y, width: Math.max(1, x(pre) - L), height: barH, 'class': 'vz-ctx' }, g1);
+      bind(g1, [pre.toFixed(1) + ' days before the carrier', r.name + ' · approval ' + r.approve.toFixed(2) + ' + seller packing ' + r.pack.toFixed(2)]);
+      var g2 = svgEl('g', { 'class': 'vz-mark' }, s);
+      svgEl('rect', { x: x(pre) + gap, y: y - 4, width: x(tot) - x(pre) - gap, height: barH + 8, 'class': 'vz-hit' }, g2);
+      svgEl('path', { d: hbar(x(pre) + gap, x(tot), y, barH), 'class': 'vz-ink' }, g2);
+      bind(g2, [r.transit.toFixed(1) + ' days in carrier transit', r.name + ' (' + r.s + ')']);
+      var t = text(s, x(pre) + gap + 8, y + barH / 2 + 4, r.transit.toFixed(1) + (W < 440 ? '' : ' in transit'), 'vz-in-ink');
+      if (t.getComputedTextLength() + 16 > x(tot) - x(pre)) t.remove();
+      text(s, x(tot) + 6, y + barH / 2 + 4, tot.toFixed(1) + ' days', 'vz-t vz-t-val');
+    });
+    line(s, L, top, L, top + rows.length * rowH, 'vz-axis');
+    table(fig, ['State', 'Approval', 'Seller packing', 'Carrier transit', 'Total days'], rows.map(function (r) {
+      return [r.name + ' (' + r.s + ')', r.approve.toFixed(2), r.pack.toFixed(2), r.transit.toFixed(2), (r.approve + r.pack + r.transit).toFixed(2)];
+    }), [1, 2, 3, 4]);
+  }
+
+  /* ── 6. Freight as a share of item price ── */
+  function freight(fig, host) {
+    var rows = DATA.freight;
+    hbars(host, {
+      rows: rows, label: 'Average freight as a share of item price: electronics 68.8%, telephony 50.8%',
+      name: function (r) { return r.c; }, val: function (r) { return r.v; }, fmt: function (v) { return pc(v); }, max: 70,
+      ink: function (r) { return r.hi; }, stackBelow: 360,
+      ticks: [0, 10, 20, 30, 40, 50, 60, 70], ticksNarrow: [0, 35, 70],
+      tick: function (t) { return t + '%'; },
+      tip: function (r) { return [pc(r.v) + ' of item price', r.c + ' · average freight']; }
+    });
+    table(fig, ['Category', 'Freight as % of item price'], rows.map(function (r) { return [r.c, pc(r.v)]; }), [1]);
+  }
+
+  /* ── 7. Detractor share by delivery time (columns) ── */
+  function detr(fig, host) {
+    var rows = DATA.detr, W = host.clientWidth;
+    var L = 38, R = 4, top = 22, plotH = 190, axisH = 44, H = top + plotH + axisH;
+    var s = newSvg(host, W, H, 'Share of 1 and 2 star reviews by delivery time: 7.2% for 0 to 5 days, rising to 37.0% beyond 20 days');
+    var y = scale(0, 40, top + plotH, top);
+    [0, 10, 20, 30, 40].forEach(function (t) { line(s, L, y(t), W - R, y(t), t === 0 ? 'vz-axis' : 'vz-grid'); text(s, L - 8, y(t) + 4, t + '%', 'vz-t vz-t-muted', 'end'); });
+    var slot = (W - L - R) / rows.length, bw = Math.min(24, slot * 0.4);
+    rows.forEach(function (r, i) {
+      var cx = L + slot * i + slot / 2, ink = i === rows.length - 1;
+      var g = svgEl('g', { 'class': 'vz-mark' }, s);
+      svgEl('rect', { x: cx - slot / 2 + 4, y: top, width: slot - 8, height: plotH, 'class': 'vz-hit' }, g);
+      svgEl('path', { d: vbar(cx - bw / 2, bw, y(0), y(r.v)), 'class': ink ? 'vz-ink' : 'vz-ctx' }, g);
+      bind(g, [pc(r.v) + ' detractors', r.b + ' to deliver · ' + int(r.n) + ' reviews', r.stars.toFixed(2) + '★ average']);
+      text(s, cx, y(r.v) - 7, pc(r.v), ink ? 'vz-t vz-t-val' : 'vz-t vz-t-muted', 'middle');
+      text(s, cx, top + plotH + 18, r.b, ink ? 'vz-t vz-t-strong' : 'vz-t', 'middle');
+      text(s, cx, top + plotH + 34, r.stars.toFixed(2) + '★', 'vz-t vz-t-muted', 'middle');
+    });
+    table(fig, ['Delivery time', 'Detractor share', 'Reviews', 'Average stars'], rows.map(function (r) { return [r.b, pc(r.v), int(r.n), r.stars.toFixed(2)]; }), [1, 2, 3]);
+  }
+
+  /* ── 8. Orders by day and hour (heatmap, one-hue ramp) ── */
+  function heat(fig, host) {
+    var rows = DATA.heat, days = DATA.days, W = host.clientWidth, narrow = W < 600;
+    var s = newSvg(host, W, 10, 'Orders by day of week and hour: busiest Monday to Friday from 10:00 to 16:00, quietest overnight');
+    var names = days.map(function (d) { return narrow ? d.slice(0, 3) : d; });
+    var L = widest(s, names, 'vz-t') + 12, top = 2, axisH = 22;
+    var cw = (W - L) / 24, ch = narrow ? Math.max(16, Math.min(22, cw * 1.25)) : 26;
+    var H = top + 7 * ch + axisH;
+    s.setAttribute('viewBox', '0 0 ' + W + ' ' + H); s.setAttribute('height', H);
+    var all = [].concat.apply([], rows), mn = Math.min.apply(null, all), mx = Math.max.apply(null, all);
+    // one hue, light to dark: ink at rising opacity over the chart surface
+    function shade(v) { return (0.04 + 0.96 * (v - mn) / (mx - mn)).toFixed(3); }
+    function hh(h) { return (h < 10 ? '0' : '') + h + ':00'; }
+    function lines(r, c) { return [int(rows[r][c]) + ' orders', days[r] + ' · ' + hh(c) + '–' + hh((c + 1) % 24)]; }
+    var g = svgEl('g', {}, s);
+    rows.forEach(function (row, r) {
+      text(s, L - 10, top + r * ch + ch / 2 + 4, names[r], 'vz-t', 'end');
+      row.forEach(function (v, c) {
+        var cell = svgEl('rect', { x: L + c * cw + 1, y: top + r * ch + 1, width: Math.max(1, cw - 2), height: ch - 2, rx: 2, 'class': 'vz-ink', 'fill-opacity': shade(v) }, g);
+        cell.addEventListener('pointerenter', function (e) { fill(lines(r, c)); place(e.clientX, e.clientY); });
+        cell.addEventListener('pointermove', function (e) { place(e.clientX, e.clientY); });
+        cell.addEventListener('pointerleave', hide);
+      });
+    });
+    (narrow ? [0, 6, 12, 18] : [0, 3, 6, 9, 12, 15, 18, 21]).forEach(function (h) { text(s, L + h * cw + 1, H - 5, hh(h), 'vz-t vz-t-muted'); });
+    var ring = svgEl('rect', { x: 0, y: 0, width: Math.max(1, cw - 2), height: ch - 2, rx: 2, 'class': 'vz-cell-focus' }, s);
+    ring.style.display = 'none';
+    rover(g, 'Orders by day of week and hour of purchase. Use the arrow keys to read each hour.', 7 * 24, function (i) {
+      var r = Math.floor(i / 24), c = i % 24;
+      ring.setAttribute('x', L + c * cw + 1); ring.setAttribute('y', top + r * ch + 1); ring.style.display = '';
+      fill(lines(r, c)); var b = ring.getBoundingClientRect(); place(b.left + b.width / 2, b.top);
+    }, function () { ring.style.display = 'none'; }, 24, 0);
+    var head = ['Day']; for (var h = 0; h < 24; h++) head.push(hh(h));
+    head.push('Total');
+    table(fig, head, rows.map(function (row, r) { return [days[r]].concat(row.map(int)).concat([int(row.reduce(function (a, b) { return a + b; }, 0))]); }), head.map(function (_, i) { return i; }).slice(1));
+  }
+
+  /* ── 9. Payment mix ── */
+  function pay(fig, host) {
+    var rows = DATA.pay;
+    hbars(host, {
+      rows: rows, label: 'Share of orders by payment method: credit card 76.9%, boleto 19.9%',
+      name: function (r) { return r.p; }, val: function (r) { return r.share; }, fmt: function (v) { return pc(v); }, max: 80,
+      ink: function (r) { return r.hi; }, stackBelow: 340,
+      ticks: [0, 20, 40, 60, 80], ticksNarrow: [0, 40, 80],
+      tick: function (t) { return t + '%'; },
+      tip: function (r) { return [pc(r.share) + ' of orders', r.p + ' · ' + brlShort(r.value) + ' paid']; }
+    });
+    table(fig, ['Method', 'Share of orders', 'Payment value (R$)'], rows.map(function (r) { return [r.p, pc(r.share), brl(r.value)]; }), [1, 2]);
+  }
+
+  /* ── 10. Revenue share by seller decile (columns) ── */
+  function deciles(fig, host) {
+    var rows = DATA.deciles, W = host.clientWidth;
+    var L = 38, R = 4, top = 22, plotH = 190, axisH = 40, H = top + plotH + axisH;
+    var s = newSvg(host, W, H, 'Share of item revenue by seller decile: the top 10% of sellers hold 67.6%, the bottom 10% hold 0.1%');
+    var y = scale(0, 70, top + plotH, top);
+    [0, 10, 20, 30, 40, 50, 60, 70].forEach(function (t) { line(s, L, y(t), W - R, y(t), t === 0 ? 'vz-axis' : 'vz-grid'); if (t % 20 === 0 || W >= 440) text(s, L - 8, y(t) + 4, t + '%', 'vz-t vz-t-muted', 'end'); });
+    var slot = (W - L - R) / rows.length, bw = Math.min(24, slot - 8);
+    rows.forEach(function (r, i) {
+      var cx = L + slot * i + slot / 2, ink = r.d === 1;
+      var g = svgEl('g', { 'class': 'vz-mark' }, s);
+      svgEl('rect', { x: cx - slot / 2, y: top, width: slot, height: plotH, 'class': 'vz-hit' }, g);
+      svgEl('path', { d: vbar(cx - bw / 2, bw, y(0), y(r.share)), 'class': ink ? 'vz-ink' : 'vz-ctx' }, g);
+      bind(g, [pc(r.share) + ' of item revenue', 'Decile ' + r.d + ' (about 310 sellers) · ' + brlShort(r.rev)]);
+      if (r.d <= 3 || r.d === 10) text(s, cx, y(r.share) - 7, pc(r.share), ink ? 'vz-t vz-t-val' : 'vz-t vz-t-muted', 'middle');
+      text(s, cx, top + plotH + 17, String(r.d), ink ? 'vz-t vz-t-strong' : 'vz-t', 'middle');
+    });
+    text(s, L, top + plotH + 34, W < 380 ? 'Seller decile (1 = top 10%) →' : 'Seller decile, 1 = top 10% by item revenue →', 'vz-t vz-t-muted');
+    table(fig, ['Decile', 'Share of item revenue', 'Item revenue (R$)'], rows.map(function (r) { return [String(r.d), pc(r.share, 2), brl(r.rev)]; }), [0, 1, 2]);
+  }
+
+  /* ── 11. Top 20 sellers: volume against rating (scatter) ── */
+  function sellers(fig, host) {
+    var rows = DATA.sellers, W = host.clientWidth, narrow = W < 440;
+    var L = 40, R = 12, top = 26, plotH = 220, axisH = 22, H = top + plotH + axisH;
+    var s = newSvg(host, W, H, 'Orders against average rating for the top 20 sellers: 19 sit between 3.8 and 4.4 stars, one has 3.35 stars across 982 orders');
+    var x = scale(400, 2000, L, W - R), y = scale(3.2, 4.5, top + plotH, top);
+    (narrow ? [3.4, 3.8, 4.2] : [3.4, 3.6, 3.8, 4.0, 4.2, 4.4]).forEach(function (t) { line(s, L, y(t), W - R, y(t), 'vz-grid'); text(s, L - 8, y(t) + 4, t.toFixed(1), 'vz-t vz-t-muted', 'end'); });
+    line(s, L, top + plotH, W - R, top + plotH, 'vz-axis');
+    (W < 600 ? [500, 1000, 1500] : [500, 750, 1000, 1250, 1500, 1750]).forEach(function (t) { text(s, x(t), top + plotH + 16, int(t), 'vz-t vz-t-muted', 'middle'); });
+    text(s, W - R, top + plotH + 16, 'Orders →', 'vz-t vz-t-muted', 'end');
+    text(s, 0, 10, 'Average stars ↑', 'vz-t vz-t-muted');
+    svgEl('rect', { x: L, y: y(4.4), width: W - R - L, height: y(3.8) - y(4.4), 'class': 'vz-band' }, s);
+    text(s, W - R - 6, y(4.4) + 14, '3.8–4.4★: 19 of the top 20', 'vz-t vz-t-muted', 'end');
+    rows.slice().sort(function (a, b) { return (a.rating < 3.5) - (b.rating < 3.5); }).forEach(function (r) {
+      var out = r.rating < 3.5;
+      var g = svgEl('g', { 'class': 'vz-mark' }, s);
+      svgEl('circle', { cx: x(r.orders), cy: y(r.rating), r: 12, 'class': 'vz-hit' }, g);
+      svgEl('circle', { cx: x(r.orders), cy: y(r.rating), r: out ? 6 : 5, 'class': (out ? 'vz-ink' : 'vz-ctx') + ' vz-ring' }, g);
+      bind(g, [r.rating.toFixed(2) + '★ average', 'Seller ranked ' + r.rank + ' by orders · ' + int(r.orders) + ' orders']);
+      if (out) text(s, x(r.orders) + 12, y(r.rating) + 4, int(r.orders) + ' orders, ' + r.rating.toFixed(2) + '★', 'vz-t vz-t-val');
+    });
+    table(fig, ['Rank by orders', 'Orders', 'Average stars'], rows.map(function (r) { return [String(r.rank), int(r.orders), r.rating.toFixed(2)]; }), [0, 1, 2]);
+  }
+
+  /* ── 12. Category pairs bought together ── */
+  function affinity(fig, host) {
+    var rows = DATA.affinity;
+    hbars(host, {
+      rows: rows, label: 'Orders containing both categories: bed, bath & table with furniture & décor leads with 70 orders',
+      name: function (r) { return r.a; }, sub: function (r) { return '+ ' + r.b; },
+      val: function (r) { return r.n; }, fmt: function (v) { return String(v); }, max: 80, barH: 14,
+      ink: function (r) { return r.home; }, stackBelow: 400,
+      ticks: [0, 20, 40, 60, 80], ticksNarrow: [0, 40, 80],
+      tick: function (t) { return String(t); },
+      tip: function (r) { return [r.n + ' orders', r.a + ' + ' + r.b]; }
+    });
+    table(fig, ['Category A', 'Category B', 'Orders with both'], rows.map(function (r) { return [r.a, r.b, String(r.n)]; }), [2]);
+  }
+
+  var RENDER = { tables: tables, monthly: monthly, cats: cats, late: late, stages: stages, freight: freight, detr: detr, heat: heat, pay: pay, deciles: deciles, sellers: sellers, affinity: affinity };
+  var figs = Array.prototype.slice.call(document.querySelectorAll('figure[data-chart]'));
+  function drawAll(force) {
+    figs.forEach(function (fig) {
+      var host = fig.querySelector('.viz-plot');
+      var w = host.clientWidth;
+      if (!w || (!force && host.dataset.w === String(w))) return;
+      host.dataset.w = String(w);
+      RENDER[fig.dataset.chart](fig, host);
+    });
+  }
+  figs.forEach(function (fig) {
+    var b = fig.querySelector('.viz-btn');
+    if (b) b.addEventListener('click', function () {
+      var on = fig.classList.toggle('show-table');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.textContent = on ? 'Chart only' : 'Table';
+    });
+  });
+  var timer = null;
+  window.addEventListener('resize', function () { clearTimeout(timer); timer = setTimeout(function () { drawAll(false); }, 120); });
+  // draw after web fonts load so label measurements are right
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { drawAll(true); });
+  drawAll(true);
+})();
+</script>
+</body>
+</html>
